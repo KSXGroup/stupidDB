@@ -12,21 +12,19 @@ const char IDX_SUFFIX[10] = ".ksxidx";
 
 template<typename Key, typename Compare>
 class BPTree;
-
-template<typename Key, typename Compare>
-class BPTLeaf;
-
-template<typename Key, typename Compare>
-class BPTNode;
 struct dBDataType;
 
 template<typename Key, typename Compare = std::less<Key>>
 class BPTree{
 private:
+    struct BPTLeaf{};
+    struct BPTNode{};
+
+private:
     char fileName[MAX_FILENAME_LEN];
     std::fstream fidx;
     std::fstream fdb;
-    BPTNode<Key, Compare> currentNode;
+    BPTNode currentNode;
 
     //file IO
     bool importIdxFile(){
@@ -40,14 +38,15 @@ private:
     bool closeIdxFile(){}
     bool openDbFile(){}
     bool closeDbFile(){}
-    BPTNode<Key, Compare> *readNode(){}
+    BPTNode *readNode(){}
     bool writeNode(){}
-    BPTLeaf<Key, Compare> *readLeaf(){}
+    BPTLeaf *readLeaf(){}
     bool writeLeaf(){}
 
     //Node merge, Node split
     void mergeNode(){}
-    void splitNode(){}
+    void splitNode(){}    
+
 
 public:
     BPTree(const char* s){
@@ -58,16 +57,9 @@ public:
     }
 
     //Insert, Remove, Find
-    BPTNode<Key, Compare>* insertData(){}
+    BPTNode *insertData(){}
     bool removeData(){}
 
-};
-
-template<typename Key, typename Compare = std::less<Key>>
-class BPTNode{
-public:
-    BPTNode(){}
-    ~BPTNode(){}
 };
 
 #endif
