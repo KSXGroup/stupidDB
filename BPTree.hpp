@@ -3,14 +3,20 @@
 #include <fstream>
 #include <iostream>
 #include <cstring>
+#include "dbException.hpp"
 
 const size_t MAX_FILENAME_LEN = 30;
+const int INVALID_OFFSET = -1;
 const char DB_SUFFIX[10] = ".ksxdb";
 const char IDX_SUFFIX[10] = ".ksxidx";
 
 template<typename Key, typename Compare>
 class BPTree;
+
+template<typename Key, typename Compare>
 class BPTLeaf;
+
+template<typename Key, typename Compare>
 class BPTNode;
 struct dBDataType;
 
@@ -20,16 +26,23 @@ private:
     char fileName[MAX_FILENAME_LEN];
     std::fstream fidx;
     std::fstream fdb;
-    //BPTNode currentNode;
+    BPTNode<Key, Compare> currentNode;
 
     //file IO
-    std::fstream& openIdxFile(){}
+    bool importIdxFile(){
+        fidx.open(fileName, std::ios_base::in | std::ios_base::out | std::ios_base::binary);
+        if(!fidx){
+            fidx.open(fileName, std::ios_base::out);
+            fidx.write(fileName, MAX_FILENAME_LEN);
+            fidx.close();
+        }
+    }
     bool closeIdxFile(){}
-    std::fstream& openDbFile(){}
+    bool openDbFile(){}
     bool closeDbFile(){}
-    BPTNode *readNode(){}
+    BPTNode<Key, Compare> *readNode(){}
     bool writeNode(){}
-    BPTLeaf *readLeaf(){}
+    BPTLeaf<Key, Compare> *readLeaf(){}
     bool writeLeaf(){}
 
     //Node merge, Node split
@@ -38,17 +51,23 @@ private:
 
 public:
     BPTree(const char* s){
-        for(size_t i = 0; i < strlen(s); ++i) fileName[i] = s[i];
+        memset(fileName, 0,sizeof(fileName));
+        for(size_t i = 0; i <= strlen(s); ++i) fileName[i] = s[i];
         strcat(fileName, IDX_SUFFIX);
-        std::cout << fileName ;
+        importIdxFile();
     }
 
     //Insert, Remove, Find
-    BPTNode* insertData(){}
+    BPTNode<Key, Compare>* insertData(){}
     bool removeData(){}
 
 };
 
-
+template<typename Key, typename Compare = std::less<Key>>
+class BPTNode{
+public:
+    BPTNode(){}
+    ~BPTNode(){}
+};
 
 #endif
