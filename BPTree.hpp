@@ -3,16 +3,20 @@
 #include <fstream>
 #include <iostream>
 #include <cstring>
+#include <queue>
 #include "dbException.hpp"
 #define IOB std::ios_base::in | std::ios_base::out | std::ios_base::binary
+#define TIOB std::ios_base::trunc | std::ios_base::in | std::ios_base::out | std::ios_base::binary
 const size_t MAX_FILENAME_LEN = 30;
 const size_t MAX_BLOCK_SIZE = 500;
+const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
 const int INVALID_OFFSET = -1;
 const int INTERN_NODE = 1;
 const int LEAF_NODE = 2;
-const int FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
 const char DB_SUFFIX[10] = ".ksxdb";
 const char IDX_SUFFIX[10] = ".ksxidx";
+const char IDX_MGR_SUFFIX[10] = ".idxmgr";
+const char DB_MGR_SUFFIX[10] = ".dbmgr";
 
 template<typename Key, typename Compare>
 class BPTree;
@@ -50,14 +54,46 @@ private:
 
 private:
     char idxFileName[MAX_FILENAME_LEN];
+    char idxFileMgr[MAX_FILENAME_LEN];
     char dbFileName[MAX_FILENAME_LEN];
+    char dbFileMgr[MAX_FILENAME_LEN];
     size_t dataLen = 0;
     size_t dataSize = 0;
     std::fstream fidx;
     std::fstream fdb;
+    std::fstream fmgr;
+    std::queue<size_t> QidxMgr;
+    std::queue<size_t> QdbMgr;
     BPTNode* currentNode = nullptr;
 
-    //file IO
+//*******************file IO****************************//
+
+    //Dont forget to DELETE afte using allocNewNode()!
+    BPTNode *allocNewNode(const int &nodeType){
+        if(fmgr.is_open()) fmgr.close();
+        BPTNode *tmp = new BPTNode(nodeType);
+        size_t offset = 0;
+        fmgr.open(idxFileMgr, IOB);
+        if(!QidxMgr.empty()){
+            offset = QidxMgr.front();
+            QidxMgr.pop();
+            writeNode(tmp, offset);
+            return tmp;
+        }
+        else{
+            std::cerr << "write to end \n";
+            writeNode(tmp);
+            return tmp;
+        }
+        delete tmp;
+        tmp = nullptr;
+        return tmp;
+    }
+
+    bool deleteNode(size_t offset){
+        //TODO
+    }
+
     bool writeIdx(){
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
@@ -73,6 +109,7 @@ private:
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
         char tmp[MAX_FILENAME_LEN];
+        size_t offset = 0;
         fidx.read(tmp, sizeof(char) * MAX_FILENAME_LEN);
         if(strcmp(idxFileName, tmp) != 0) throw fileNotMatch();
         strcpy(idxFileName, tmp);
@@ -80,6 +117,20 @@ private:
         fidx.read((char*)&dataLen, sizeof(size_t));
         fidx.read((char*)&dataSize, sizeof(size_t));
         fidx.close();
+
+        //I will read mgr file into Q here
+        fmgr.open(idxFileMgr, IOB);
+        while(!fmgr.eof()){
+            fmgr.read((char*)&offset, sizeof(size_t));
+            QidxMgr.push(offset);
+        }
+        fmgr.close();
+        fmgr.open(dbFileMgr, IOB);
+        while(!fmgr.eof()){
+            fmgr.read((char*)&offset, sizeof(size_t));
+            QdbMgr.push(offset);
+        }
+        fmgr.close();
         return 1;
     }
 
@@ -96,9 +147,13 @@ private:
         fidx.close();
         return tmp;
     }
-    bool writeNode(size_t offset, const BPTNode *p){
+    bool writeNode(const BPTNode *p, size_t offset = 0){
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
+        if(offset == 0){
+            fidx.seekg(0, std::ios_base::end);
+            offset = fidx.tellg();
+        }
         if(!fidx.is_open()) return 0;
         fidx.seekp(offset);
         fidx.write((const char*)&(p->nodeType), sizeof(int));
@@ -109,30 +164,35 @@ private:
     }
 
     bool importIdxFile(const size_t dl){
-        if(fidx.is_open()) return 0;
+        if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
         if(!fidx){
             if(dl == 0) throw ImportFileNotExist();
             if(currentNode) delete currentNode;
             currentNode = new BPTNode(LEAF_NODE);
-            //create new file
+            //create new file if index not exist
             fidx.open(idxFileName, std::ios_base::out);
             fidx.close();
             fdb.open(dbFileName, std::ios_base::out);
             fdb.close();
+            fmgr.open(idxFileMgr, std::ios_base::out);
+            fmgr.close();
+            fmgr.open(dbFileMgr, std::ios_base::out);
+            fmgr.close();
             writeIdx();
-            writeNode(FIRST_NODE_OFFSET, currentNode);
+            writeNode(currentNode, FIRST_NODE_OFFSET);
             return 1;
         }
         else{
             readIdx();
+            if(currentNode) delete currentNode;
             currentNode = readNode(FIRST_NODE_OFFSET);
             return 1;
         }
     }
 
-    bool openDbFile(){}
-    bool closeDbFile(){}
+    //bool openDbFile(){}
+    //bool closeDbFile(){}
 
     //Node merge, Node split
     void mergeNode(){}
@@ -144,13 +204,33 @@ public:
         memset(idxFileName, 0,sizeof(idxFileName));
         for(size_t i = 0; i <= strlen(s); ++i) idxFileName[i] = s[i];
         for(size_t i = 0; i <= strlen(s); ++i) dbFileName[i] = s[i];
+        for(size_t i = 0; i <= strlen(s); ++i) idxFileMgr[i] = s[i];
+        for(size_t i = 0; i <= strlen(s); ++i) dbFileMgr[i] = s[i];
         strcat(idxFileName, IDX_SUFFIX);
         strcat(dbFileName, DB_SUFFIX);
+        strcat(idxFileMgr, IDX_MGR_SUFFIX);
+        strcat(dbFileMgr, DB_MGR_SUFFIX);
         importIdxFile(dataLen);
     }
 
     ~BPTree(){
         if(currentNode) delete currentNode;
+        size_t offset = 0;
+        fmgr.open(idxFileMgr, TIOB);
+        while(!QidxMgr.empty()){
+            offset = QidxMgr.front();
+            fmgr.write((char*)&offset, sizeof(size_t));
+            QidxMgr.pop();
+        }
+        fmgr.close();
+
+        fmgr.open(dbFileMgr, TIOB);
+        while(!QdbMgr.empty()){
+            offset = QdbMgr.front();
+            fmgr.write((char*)&offset, sizeof(size_t));
+            QdbMgr.pop();
+        }
+        fmgr.close();
     }
 
     //Insert, Remove, Find
