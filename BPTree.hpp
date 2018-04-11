@@ -22,7 +22,7 @@ template<typename Key, typename Compare>
 class BPTree;
 struct dBDataType;
 
-template<typename Key, typename Compare = std::less<Key> >
+template<typename Key, typename T, typename Compare = std::less<Key> >
 class BPTree{
 private:
     struct BPTNode{
@@ -58,7 +58,6 @@ private:
     char idxFileMgr[MAX_FILENAME_LEN];
     char dbFileName[MAX_FILENAME_LEN];
     char dbFileMgr[MAX_FILENAME_LEN];
-    size_t dataLen = 0;
     size_t dataSize = 0;
     size_t rootOffset = 0;
     std::fstream fidx;
@@ -101,7 +100,6 @@ private:
         fidx.open(idxFileName, IOB);
         fidx.write(idxFileName, sizeof(char) * MAX_FILENAME_LEN);
         fidx.write(dbFileName, sizeof(char) * MAX_FILENAME_LEN);
-        fidx.write((const char*)&dataLen, sizeof(size_t));
         fidx.write((const char*)&dataSize, sizeof(size_t));
         fidx.write((const char*)&rootOffset, sizeof(size_t));
         fidx.close();
@@ -117,7 +115,6 @@ private:
         if(strcmp(idxFileName, tmp) != 0) throw fileNotMatch();
         strcpy(idxFileName, tmp);
         fidx.read(dbFileName, sizeof(char) * MAX_FILENAME_LEN);
-        fidx.read((char*)&dataLen, sizeof(size_t));
         fidx.read((char*)&dataSize, sizeof(size_t));
         fidx.read((char*)&rootOffset, sizeof(size_t));
         fidx.close();
@@ -154,7 +151,7 @@ private:
     bool writeNode(BPTNode *p, size_t offset = 0){
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
-        if(offset == 0){
+        if(offset <= 0){
             fidx.seekg(0, std::ios_base::end);
             offset = fidx.tellg() + 1;
         }
@@ -175,7 +172,8 @@ private:
         if(!fidx){
             if(dl == 0) throw ImportFileNotExist();
             if(currentNode) delete currentNode;
-            currentNode = allocNode(LEAF_NODE);
+            fidx.clear();
+            currentNode = allocNode(LEAF_NODE); //written to end when alloc
             //create new file if index not exist
             fidx.open(idxFileName, std::ios_base::out);
             fidx.close();
@@ -185,9 +183,8 @@ private:
             fmgr.close();
             fmgr.open(dbFileMgr, std::ios_base::out);
             fmgr.close();
-            rootOffset = FIRST_NODE_OFFSET;
+            rootOffset = currentNode->nodeOffset;
             writeIdx();
-            writeNode(currentNode, rootOffset);
             return 1;
         }
         else{
@@ -233,12 +230,53 @@ private:
                 else cmpresLast = cmpres;
             }
         }
+        for(int i = 0; i < currentNode->sz; ++i){
+            cmpres = keyCompare(k, currentNode->data[i]);
+            if(cmpres == 2){
+                //readData(); // TODO READ DATA
+                //return read data
+            }
+        }
 
-        //TODO
+        //return null
+
     }
 
+    BPTNode *treeInsert(const Key &k, void *dataPtr){
+        //----------------- copy from treeFind() -----------------------//
+        int cmpres = 0, cmpresLast = 0;
+        if(currentNode){
+            writeNode(currentNode, currentNode->nodeOffset);
+            delete currentNode;
+            currentNode = nullptr;
+        }
+        currentNode = readNode(rootOffset);
+        while(currentNode->nodeType != LEAF_NODE){
+            cmpresLast = keyCompare(k,currentNode->data[0]);
+            if(cmpresLast == 1 || cmpresLast == 2){
+                BPTNode *tmp = readNode(currentNode->data[0].data);
+                delete currentNode;
+                currentNode = tmp;
+                continue;
+            }
+            for(size_t i = 1; i < currentNode->sz; ++i){
+                cmpres = keyCompare(k, currentNode->data[i].k);
+                if(cmpresLast == 0 && (cmpres == 1 || cmpres == 2)){
+                    BPTNode *tmp = readNode(currentNode->data[i].data);
+                    delete currentNode;
+                    currentNode = tmp;
+                    break;
+                }
+                else cmpresLast = cmpres;
+            }
+        }
+        //----------------- copy from treeFind() -----------------------//
+        //for(size_t i = 0; i < currentNode -> sz; ++i){}......
+    }
+
+
 public:
-    BPTree(const char* s, size_t dl = 0): dataLen(dl){
+    BPTree(const char* s){
         memset(idxFileName, 0,sizeof(idxFileName));
         for(size_t i = 0; i <= strlen(s); ++i) idxFileName[i] = s[i];
         for(size_t i = 0; i <= strlen(s); ++i) dbFileName[i] = s[i];
@@ -248,7 +286,7 @@ public:
         strcat(dbFileName, DB_SUFFIX);
         strcat(idxFileMgr, IDX_MGR_SUFFIX);
         strcat(dbFileMgr, DB_MGR_SUFFIX);
-        importIdxFile(dataLen);
+        importIdxFile(sizeof(T));
     }
 
     ~BPTree(){

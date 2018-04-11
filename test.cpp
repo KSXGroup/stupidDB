@@ -1,5 +1,5 @@
 #include <iostream>
 #include "BPTree.hpp"
 int main(){
-        BPTree<int> s("bryan",sizeof(size_t));
+        BPTree<int, size_t> s("bryan",sizeof(size_t));
 }
