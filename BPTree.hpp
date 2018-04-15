@@ -20,16 +20,16 @@ const char DB_MGR_SUFFIX[10] = ".dbmgr";
 
 template<typename Key, typename Compare>
 class BPTree;
-struct dBDataType;
 
 template<typename Key, typename T, typename Compare = std::less<Key> >
 class BPTree{
 private:
+    struct treeData{
+        Key k = Key();
+        size_t data = 0;
+    };
+
     struct BPTNode{
-        struct treeData{
-            Key k = Key();
-            size_t data = 0;
-        };
 
         BPTNode(const int &ndt):nodeType(ndt){}
         BPTNode(const BPTNode &other){
@@ -166,6 +166,39 @@ private:
         return 1;
     }
 
+    inline void changeToRoot(){
+        if(currentNode){
+            writeNode(currentNode, currentNode->nodeOffset);
+            delete currentNode;
+            currentNode = nullptr;
+        }
+        currentNode = readNode(rootOffset);
+    }
+
+   T *readData(size_t offset){
+        T *tmp = nullptr;
+        fdb.open(dbFileName, IOB);
+        fdb.read((char*)tmp, sizeof(T));
+        return *tmp;
+   }
+
+   bool writeData(const T *dataPtr){
+       if(fdb.is_open()) fdb.close();
+       size_t offset = 0;
+       fdb.open(dbFileName, IOB);
+       if(!fdb) return 0;
+       if(!QdbMgr.empty()){
+            offset = QdbMgr.front();
+            QdbMgr.pop();
+       }
+       else{
+           fdb.seekg(0, std::ios_base::end);
+           offset = fdb.tellg() + 1;
+       }
+       fdb.write((const char*)dataPtr, sizeof(T));
+       return 1;
+   }
+
     bool importIdxFile(const size_t dl){
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
@@ -195,86 +228,55 @@ private:
         }
     }
 
-    //bool openDbFile(){}
-    //bool closeDbFile(){}
-
     //Node merge, Node split
     void mergeNode(){}
     void splitNode(){}    
 
     //private find
-    BPTNode *treeFind(const Key &k){
-        int cmpres = 0, cmpresLast = 0;
-        if(currentNode){
-            writeNode(currentNode, currentNode->nodeOffset);
-            delete currentNode;
-            currentNode = nullptr;
-        }
-        currentNode = readNode(rootOffset);
+   treeData treeFind(const Key &k){
+        int cmpres = 0;
+        changeToRoot();
+        cmpres = keyCompare(k,currentNode->data[0].k);
+        if(cmpres == 1) return treeData(); //if less than first element, return
+
         while(currentNode->nodeType != LEAF_NODE){
-            cmpresLast = keyCompare(k,currentNode->data[0]);
-            if(cmpresLast == 1 || cmpresLast == 2){
+            cmpres = keyCompare(k,currentNode->data[0]);
+            if(cmpres == 2){
                 BPTNode *tmp = readNode(currentNode->data[0].data);
                 delete currentNode;
                 currentNode = tmp;
+                tmp = nullptr;
                 continue;
             }
-            for(size_t i = 1; i < currentNode->sz; ++i){
+            for(size_t i = currentNode->sz - 1; i >= 0; --i){
+                if(i >= currentNode->sz) break;
                 cmpres = keyCompare(k, currentNode->data[i].k);
-                if(cmpresLast == 0 && (cmpres == 1 || cmpres == 2)){
-                    BPTNode *tmp = readNode(currentNode->data[i].data);
-                    delete currentNode;
-                    currentNode = tmp;
+                if(cmpres == 2 || cmpres == 0){
+                    BPTNode *tmp = currentNode;
+                    currentNode = readNode(currentNode->data[i].data);
+                    delete tmp;
+                    tmp =nullptr;
                     break;
                 }
-                else cmpresLast = cmpres;
             }
         }
         for(int i = 0; i < currentNode->sz; ++i){
             cmpres = keyCompare(k, currentNode->data[i]);
-            if(cmpres == 2){
-                //readData(); // TODO READ DATA
-                //return read data
-            }
+            if(cmpres == 2) return treeData(currentNode->data[i]);
         }
-
-        //return null
+        return treeData();
 
     }
 
-    BPTNode *treeInsert(const Key &k, void *dataPtr){
-        //----------------- copy from treeFind() -----------------------//
-        int cmpres = 0, cmpresLast = 0;
-        if(currentNode){
-            writeNode(currentNode, currentNode->nodeOffset);
-            delete currentNode;
-            currentNode = nullptr;
-        }
-        currentNode = readNode(rootOffset);
-        while(currentNode->nodeType != LEAF_NODE){
-            cmpresLast = keyCompare(k,currentNode->data[0]);
-            if(cmpresLast == 1 || cmpresLast == 2){
-                BPTNode *tmp = readNode(currentNode->data[0].data);
-                delete currentNode;
-                currentNode = tmp;
-                continue;
-            }
-            for(size_t i = 1; i < currentNode->sz; ++i){
-                cmpres = keyCompare(k, currentNode->data[i].k);
-                if(cmpresLast == 0 && (cmpres == 1 || cmpres == 2)){
-                    BPTNode *tmp = readNode(currentNode->data[i].data);
-                    delete currentNode;
-                    currentNode = tmp;
-                    break;
-                }
-                else cmpresLast = cmpres;
-            }
-        }
-        //----------------- copy from treeFind() -----------------------//
-        //for(size_t i = 0; i < currentNode -> sz; ++i){}......
-    }
-
-
+   bool treeInsertFirst(const treeData &d){
+       changeToRoot();
+       int cmpres = keyCompare(treeData.k, currentNode->data[0].k);
+       if(cmpres != 1) return 0;
+       //TODO
+   }
+   bool treeInsert(){
+       //TODO
+   }
 public:
     BPTree(const char* s){
         memset(idxFileName, 0,sizeof(idxFileName));
@@ -312,7 +314,6 @@ public:
         fmgr.close();
         writeIdx();
     }
-
     //Insert, Remove, Find
     BPTNode *insertData(){}
     bool removeData(){}
