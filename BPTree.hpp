@@ -18,7 +18,7 @@ const char IDX_SUFFIX[10] = ".ksxidx";
 const char IDX_MGR_SUFFIX[10] = ".idxmgr";
 const char DB_MGR_SUFFIX[10] = ".dbmgr";
 
-template<typename Key, typename Compare>
+template<typename Key, typename T, typename Compare>
 class BPTree;
 
 template<typename Key, typename T, typename Compare = std::less<Key> >
@@ -182,7 +182,7 @@ private:
         return *tmp;
    }
 
-   bool writeData(const T *dataPtr){
+   size_t writeData(const T *dataPtr){
        if(fdb.is_open()) fdb.close();
        size_t offset = 0;
        fdb.open(dbFileName, IOB);
@@ -196,7 +196,11 @@ private:
            offset = fdb.tellg() + 1;
        }
        fdb.write((const char*)dataPtr, sizeof(T));
-       return 1;
+       return offset;
+   }
+
+   size_t deleteData(size_t offset){
+       QdbMgr.push(offset);
    }
 
     bool importIdxFile(const size_t dl){
@@ -268,15 +272,102 @@ private:
 
     }
 
-   bool treeInsertFirst(const treeData &d){
+   bool treeInsertFirst(const Key &k, const T &dta){
+       size_t dataOffset = 0;
        changeToRoot();
-       int cmpres = keyCompare(treeData.k, currentNode->data[0].k);
+       int cmpres = keyCompare(k, currentNode->data[0].k);
        if(cmpres != 1) return 0;
-       //TODO
+       while(currentNode->nodeType != LEAF_NODE){
+           currentNode->data[0].k = k;
+           BPTNode *tmp = readNode(currentNode->data[0].data);
+           writeNode(currentNode, currentNode->nodeOffset);
+           delete currentNode;
+           currentNode = tmp;
+           tmp = nullptr;
+       }
+       for(size_t i = currentNode->sz - 1; i >= 0; --i){
+           if(i >= currentNode->sz) break;
+           currentNode->data[i + 1] = currentNode->data[i];
+       }
+       dataOffset = writeData(&dta);
+       currentNode->data[0].data = dataOffset;
+       currentNode->data[0].k = k;
+       currentNode->sz++;
+       //if(currentNode->sz == MAX_BLOCK_SIZE) splitNode();
+       writeNode(currentNode, currentNode->nodeOffset);
+       delete currentNode;
+       currentNode = nullptr;
+       return 1;
    }
-   bool treeInsert(){
-       //TODO
+   bool treeInsert(const Key &k, const T &dta){
+       int cmpres = 0;
+       size_t dataOffset = 0;
+       changeToRoot();
+       while(currentNode->nodeType != LEAF_NODE){
+           for(size_t i = currentNode->sz - 1; i >= 0; --i){
+               if(i >= currentNode->sz) break;
+               cmpres = keyCompare(k, currentNode->data[i].k);
+               if(cmpres == 2) return 0;
+               if(cmpres == 0){
+                   BPTNode *tmp = readNode(currentNode->data[0].data);
+                   delete currentNode;
+                   currentNode = tmp;
+                   break;
+               }
+           }
+       }
+       for(size_t i = currentNode->sz - 1; i >= 0; --i){
+           if(i >= currentNode->sz) break;
+           cmpres = keyCompare(k, currentNode->data[0].k);
+           if(cmpres == 2) return 0;
+           if(cmpres == 0){
+               for(size_t j = currentNode->sz - 1; j >= i; --j){
+                   if(j >= currentNode->sz) break;
+                   currentNode->data[j + 1] = currentNode[j];
+               }
+               dataOffset = writeData(&dta);
+               currentNode->data[i].data = dataOffset;
+               currentNode->data[i].k = k;
+               currentNode->sz++;
+               //if(currentNode->sz == MAX_BLOCK_SIZE) splitNode();
+               writeNode(currentNode, currentNode->nodeOffset);
+               delete currentNode;
+               currentNode = nullptr;
+               return 1;
+           }
+       }
+       return 0;
    }
+
+   bool treeRemove(const Key &k){
+       changeToRoot();
+       int cmpres = 0;
+       if(keyCompare(k, currentNode->data[0].k) == 1 || keyCompare(k, currentNode->data[currentNode->sz - 1].k) == 0) return 0;
+       while(currentNode->nodeType != LEAF_NODE){
+           for(size_t i = currentNode->sz - 1; i >= 0; --i){
+               if(i >= currentNode->sz) break;
+               cmpres = keyCompare(k, currentNode->data[i].k);
+               if(cmpres == 0 || cmpres == 2){
+                   BPTNode *tmp = readNode(currentNode->data[0].data);
+                   delete currentNode;
+                   currentNode = tmp;
+                   break;
+               }
+           }
+       }
+       for(size_t i = 0; i < currentNode->sz; ++i){
+           if(keyCompare(k, currentNode->data[i].k) == 2){
+               deleteData(currentNode->data[i].data);
+               for(size_t j = i; j < currentNode->sz; ++j) currentNode->data[j] = currentNode->data[j + 1];
+               currentNode->sz--;
+               //if(mergeable(currentNode)) mergeNode();
+               writeNode(currentNode, currentNode->nodeOffset);
+               return 1;
+           }
+       }
+       return 0;
+   }
+
 public:
     BPTree(const char* s){
         memset(idxFileName, 0,sizeof(idxFileName));
