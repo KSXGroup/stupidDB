@@ -30,7 +30,7 @@ const char DB_MGR_SUFFIX[10] = ".dbmgr";
 template<typename Key, typename T, typename Compare>
 class BPTree;
 
-template<typename Key, typename T, typename Compare = std::less<Key> >
+template<typename Key, typename T, typename Compare = std::greater<Key> >
 class BPTree{
 private:
 
@@ -450,12 +450,13 @@ private:
                st = nullptr;
                return itmp;
            }
-           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i) st->data[i + 1] = st->data[i];
+           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i) st->data[i + 1] = st->data[i];
            st->data[0].k = tk;
            st->data[0].data = writeData(&dta);
            st->sz++;
+           writeNode(st, st->nodeOffset);
            if(splitAble(st)){
-               retVal itmp =  retVal(splitNode(st),SPLITED);
+               retVal itmp = retVal(splitNode(st), SPLITED);
                delete st;
                st = nullptr;
                return itmp;
@@ -467,13 +468,16 @@ private:
                return itmp;
            }
        }
-       if(keyCompare(tk, currentNode->data[0].k) != 1) return retVal(Key(), 0, INVALID);
+       if(keyCompare(tk, st->data[0].k) != 1) return retVal(Key(), 0, INVALID);
        BPTNode *ntmp = readNode(st->data[0].data);
        st->data[0].k = tk;
        retVal rtmp = treeInsertFirst(tk, dta, ntmp);
+       ntmp = nullptr;
        if(rtmp.status == SPLITED){
            for(size_t i = st->sz - 1; i >= 1 && i <= st->sz; --i) st->data[i + 1] = st->data[i];
            st->data[1] = rtmp.retDta;
+           st->sz++;
+           writeNode(st, st->nodeOffset);
            if(splitAble(st)){
                retVal itmp= retVal(splitNode(st), SPLITED);
                delete st;
@@ -482,7 +486,6 @@ private:
            }
            else{
                retVal itmp = retVal(st->data[0], NOTHING);
-               writeNode(st, st->nodeOffset);
                delete st;
                st = nullptr;
                return itmp;
@@ -497,7 +500,7 @@ private:
            return itmp;
        }
        else if(rtmp.status == INVALID){
-           writeNode(st, st->nodeOffset);
+           //writeNode(st, st->nodeOffset);
            delete st;
            st = nullptr;
            return retVal(Key(), 0, INVALID);
@@ -552,6 +555,7 @@ public:
         }
         int cmpres = keyCompare(k, currentNode->data[0].k);
         if(cmpres == 1){
+            cerr << "USE TREE INSERT FIRST ON KEY : " << k << "\n";
             rt = treeInsertFirst(k, dta, currentNode);
             currentNode = nullptr;
         }
@@ -563,7 +567,7 @@ public:
         else return 1;
     }
 
-    T *find(const Key &k){
+    T *findU(const Key &k){
         T *trt = nullptr;
         treeData rt = treeFind(k);
         if(rt.data == INVALID_OFFSET){}

@@ -11,6 +11,7 @@ int main(){
     fstream fidx;
     int type = 0;
     size_t next = 0, size = 0, offset = 0;
+    int cnter = 0;
     char s[20], tmp[MAX_FILENAME_LEN], dbFileName[MAX_FILENAME_LEN];
     node tmpdata[MAX_BLOCK_SIZE];
     size_t dataSize, rootOffset;
@@ -28,7 +29,7 @@ int main(){
     cerr << "DB_FILENAME : " << dbFileName << "\n";
     cerr << "DATA_SIZE : " << dataSize << "\n";
     cerr << "OFFSET OF ROOT NODE : " << rootOffset << "\n";
-    for(int i = 1; i <= 20; ++i){
+    for(int i = 1; i <= 15; ++i){
         cerr << "\n";
         cerr << "NODE #" << i << "\n";
         cerr << "FSTREAM START AT tellg() = " << fidx.tellg() << "\n";
@@ -37,6 +38,7 @@ int main(){
         fidx.read((char*)&(size), sizeof(size_t));
         fidx.read((char*)&(offset), sizeof(size_t));
         fidx.read((char*)tmpdata, sizeof(tmpdata));
+        //if(type != INTERN_NODE) continue;
         cerr << "NODE TYPE : " << ((type == 1) ? "INTERN NODE\n" : ((type == 2) ? "LEAF NODE\n" : "INVALID\n"));
         cerr << "NEXT NODE OFFSET : " << next << "\n";
         cerr << "NODE SIZE : " << size << "\n";
@@ -59,7 +61,13 @@ int main(){
         cerr << "DBDATA #" << i << " : ";
         size_t y = 0;
         fidx.read((char*)&y, sizeof(size_t));
-        cerr << y << "\t";
+        cerr << y << "\t\t\t";
+        cnter++;
+        if(cnter == 4){
+            cerr << "\n";
+            cnter = 0;
+        }
     }
+    cerr << "\n";
 }
 
