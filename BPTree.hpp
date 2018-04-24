@@ -106,9 +106,9 @@ private:
             return tmp;
         }
         else{
-            std::cerr << "write to end \n";
+            //std::cerr << "write to end \n";
             writeNode(tmp);
-            cerr << tmp->nodeOffset << "\n";
+           // cerr << tmp->nodeOffset << "\n";
             return tmp;
         }
         delete tmp;
@@ -192,7 +192,7 @@ private:
         fidx.open(idxFileName, IOB);
         if(offset == 0){
             fidx.seekg(0, std::ios_base::end);
-            cerr << " tellg " << fidx.tellg() <<"\n";
+           // cerr << " tellg " << fidx.tellg() <<"\n";
             offset = fidx.tellg();
         }
         p->nodeOffset = offset;
@@ -214,7 +214,7 @@ private:
             currentNode = nullptr;
         }
         currentNode = readNode(rootOffset);
-        cerr << "CHANGE TO ROOT, ROOT OFFSET IS " << rootOffset << "\n";
+       // cerr << "CHANGE TO ROOT, ROOT OFFSET IS " << rootOffset << "\n";
     }
 
    T *readData(size_t offset){
@@ -251,7 +251,8 @@ private:
         if(!fidx){
             if(dl == 0) throw ImportFileNotExist();
             if(currentNode) delete currentNode;
-            fidx.clear();
+            //fidx.close();
+            //fidx.clear();
             //create new file if index not exist
             fidx.open(idxFileName, std::ios_base::out);
             fidx.close();
@@ -261,10 +262,9 @@ private:
             fmgr.close();
             fmgr.open(dbFileMgr, std::ios_base::out);
             fmgr.close();
-            writeIdx();
+           // writeIdx();
             currentNode = allocNode(LEAF_NODE); //written to end when alloc
-            rootOffset = currentNode->nodeOffset;
-            cerr << "create " << currentNode->nodeType << " with offset " << rootOffset << "\n";
+           // cerr << "create " << currentNode->nodeType << " with offset " << rootOffset << "\n";
             rootOffset = currentNode->nodeOffset;
             writeIdx();
             return 1;
@@ -290,21 +290,21 @@ private:
     //split
     treeData splitNode(BPTNode *p){
         BPTNode *ntmp = allocNode(p->nodeType);
-        cerr << "0# NODE SPLITED AND NEW NODE OFFSET IS : "  << ntmp->nodeOffset << " \n";
+       // cerr << "0# NODE SPLITED AND NEW NODE OFFSET IS : "  << ntmp->nodeOffset << " \n";
         ntmp->nextNode = p->nextNode;
         p->nextNode = ntmp->nodeOffset;
         for(size_t i = (MAX_BLOCK_SIZE >> 1) ; i < MAX_BLOCK_SIZE; ++i) ntmp->data[i - (MAX_BLOCK_SIZE >> 1)] = p->data[i];
         p->sz = (MAX_BLOCK_SIZE >> 1) ;
         ntmp->sz = MAX_BLOCK_SIZE - (MAX_BLOCK_SIZE >> 1);
-        cerr << "1# NODE SPLITED AND NEW NODE OFFSET IS : "  << ntmp->nodeOffset << " \n";
+       // cerr << "1# NODE SPLITED AND NEW NODE OFFSET IS : "  << ntmp->nodeOffset << " \n";
         writeNode(p, p->nodeOffset);
         writeNode(ntmp, ntmp->nodeOffset);
         if(p->nodeOffset == rootOffset){
             BPTNode *tmpRoot = allocNode(INTERN_NODE);
-            cerr << "1# ROOT NODE SPLITED AND NEW NODE OFFSET IS : "  << tmpRoot->nodeOffset << " \n";
+           // cerr << "1# ROOT NODE SPLITED AND NEW NODE OFFSET IS : "  << tmpRoot->nodeOffset << " \n";
             tmpRoot->sz = 2;
             tmpRoot->data[0].k = p->data[0].k;
-            cerr << "NEW ROOT FIRST" << p->data[0].k << "\n";
+           // cerr << "NEW ROOT FIRST" << p->data[0].k << "\n";
             tmpRoot->data[0].data = p->nodeOffset;
             tmpRoot->data[1].k = ntmp->data[0].k;
             tmpRoot->data[1].data = ntmp->nodeOffset;
@@ -357,7 +357,7 @@ private:
         return treeData();
     }
 
-   retVal treeInsert(const Key &k, const T &dta, BPTNode *st){
+   retVal treeInsert(const Key &k, const T &dta, BPTNode *&st){
        int cmpres = 0;
        if(st->nodeType == LEAF_NODE){
            if(st->sz == 0){
@@ -372,7 +372,11 @@ private:
            }
            for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i){
                cmpres = keyCompare(k, st->data[i].k);
-               if(cmpres == 2) return retVal(Key(), 0, INVALID);
+               if(cmpres == 2){
+                   delete st;
+                   st = nullptr;
+                   return retVal(Key(), 0, INVALID);
+               }
                else if(cmpres == 0){
                    for(size_t j = st->sz - 1; j >= i + 1 && j <= st->sz; --j) st->data[j + 1] = st->data[j];
                    treeData ins;
@@ -434,11 +438,15 @@ private:
                    return itmp;
                }
            }
-           else if(cmpres == 2) return retVal(Key(),0,INVALID);
+           else if(cmpres == 2){
+               delete st;
+               st = nullptr;
+               return retVal(Key(),0,INVALID);
+           }
        }
    }
 
-   retVal treeInsertFirst(const Key &tk, const T &dta, BPTNode *st){
+   retVal treeInsertFirst(const Key &tk, const T &dta, BPTNode *&st){
        if(st->nodeType == LEAF_NODE){
            if(st->sz == 0){
                st->data[0].k = tk;
@@ -472,7 +480,6 @@ private:
        BPTNode *ntmp = readNode(st->data[0].data);
        st->data[0].k = tk;
        retVal rtmp = treeInsertFirst(tk, dta, ntmp);
-       ntmp = nullptr;
        if(rtmp.status == SPLITED){
            for(size_t i = st->sz - 1; i >= 1 && i <= st->sz; --i) st->data[i + 1] = st->data[i];
            st->data[1] = rtmp.retDta;
@@ -509,7 +516,10 @@ private:
 
 public:
     BPTree(const char* s){
-        memset(idxFileName, 0,sizeof(idxFileName));
+        memset(idxFileName, 0, sizeof(idxFileName));
+        memset(dbFileName, 0, sizeof(dbFileName));
+        memset(idxFileMgr, 0, sizeof(idxFileMgr));
+        memset(dbFileMgr, 0, sizeof(dbFileMgr));
         for(size_t i = 0; i <= strlen(s); ++i) idxFileName[i] = s[i];
         for(size_t i = 0; i <= strlen(s); ++i) dbFileName[i] = s[i];
         for(size_t i = 0; i <= strlen(s); ++i) idxFileMgr[i] = s[i];
@@ -550,18 +560,15 @@ public:
         retVal rt;
         if(currentNode->sz == 0){
             rt = treeInsert(k, dta, currentNode);
-            currentNode = nullptr;
             return 1;
         }
         int cmpres = keyCompare(k, currentNode->data[0].k);
         if(cmpres == 1){
-            cerr << "USE TREE INSERT FIRST ON KEY : " << k << "\n";
+           // cerr << "USE TREE INSERT FIRST ON KEY : " << k << "\n";
             rt = treeInsertFirst(k, dta, currentNode);
-            currentNode = nullptr;
         }
         else if(cmpres == 0) {
             rt = treeInsert(k, dta, currentNode);
-            currentNode = nullptr;
         }
         if(rt.status == INVALID) return 0;
         else return 1;
@@ -570,8 +577,7 @@ public:
     T *findU(const Key &k){
         T *trt = nullptr;
         treeData rt = treeFind(k);
-        if(rt.data == INVALID_OFFSET){}
-        else trt = readData(rt.data);
+        trt = readData(rt.data);
         return trt;
     }
     //bool removeData(){}
