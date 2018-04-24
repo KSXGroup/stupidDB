@@ -28,7 +28,7 @@ int main(){
     cerr << "DB_FILENAME : " << dbFileName << "\n";
     cerr << "DATA_SIZE : " << dataSize << "\n";
     cerr << "OFFSET OF ROOT NODE : " << rootOffset << "\n";
-    for(int i = 1; i <= 100; ++i){
+    for(int i = 1; i <= 20; ++i){
         cerr << "\n";
         cerr << "NODE #" << i << "\n";
         cerr << "FSTREAM START AT tellg() = " << fidx.tellg() << "\n";
@@ -41,6 +41,10 @@ int main(){
         cerr << "NEXT NODE OFFSET : " << next << "\n";
         cerr << "NODE SIZE : " << size << "\n";
         cerr << "SELF OFFSET : " << offset << "\n";
+        cerr << "LIST DATA : \n";
+        for(int i = 0; i < size; ++i){
+            cerr << "NODEDATA#" << i << " : " << " KEY : " << tmpdata[i].a << "   DATA : " << tmpdata[i].b << "\n";
+        }
         cerr << "\n";
         type = 0;
         next = 0;
@@ -51,8 +55,8 @@ int main(){
     cerr << "DUMP " << dbFileName << " TO SCREEN : \n";
     fidx.close();
     fidx.open(dbFileName, IOB);
-    for(int i = 1; i <= 150; ++i){
-        cerr << "DATA #" << i << " : ";
+    for(int i = 1; i <= 210; ++i){
+        cerr << "DBDATA #" << i << " : ";
         size_t y = 0;
         fidx.read((char*)&y, sizeof(size_t));
         cerr << y << "\t";

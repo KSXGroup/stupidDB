@@ -9,7 +9,7 @@
 #define TIOB std::ios_base::trunc | std::ios_base::in | std::ios_base::out | std::ios_base::binary
 //file io
 const size_t MAX_FILENAME_LEN = 30;
-const size_t MAX_BLOCK_SIZE = 20 ;
+const size_t MAX_BLOCK_SIZE = 10 ;
 const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
 const int INVALID_OFFSET = 0;
 //node type
@@ -304,6 +304,7 @@ private:
             cerr << "1# ROOT NODE SPLITED AND NEW NODE OFFSET IS : "  << tmpRoot->nodeOffset << " \n";
             tmpRoot->sz = 2;
             tmpRoot->data[0].k = p->data[0].k;
+            cerr << "NEW ROOT FIRST" << p->data[0].k << "\n";
             tmpRoot->data[0].data = p->nodeOffset;
             tmpRoot->data[1].k = ntmp->data[0].k;
             tmpRoot->data[1].data = ntmp->nodeOffset;
@@ -401,7 +402,7 @@ private:
                BPTNode *btmp = readNode(st->data[i].data);
                retVal dtmp = treeInsert(k, dta, btmp);
                if(dtmp.status == NOTHING){
-                   st->data[0].k = dtmp.retDta.k;
+                   st->data[i].k = dtmp.retDta.k;
                    writeNode(st, st->nodeOffset);
                    retVal itmp = retVal(st->data[0], NOTHING);
                    delete st;
