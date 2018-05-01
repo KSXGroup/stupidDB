@@ -60,6 +60,7 @@ int main(){
     for(int i = 1; i <= 210; ++i){
         cerr << "DBDATA #" << i << " : ";
         size_t y = 0;
+        cerr << fidx.tellg() << " : ";
         fidx.read((char*)&y, sizeof(size_t));
         cerr << y << "\t\t\t";
         cnter++;

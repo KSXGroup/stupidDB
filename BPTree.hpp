@@ -9,9 +9,9 @@
 #define TIOB std::ios_base::trunc | std::ios_base::in | std::ios_base::out | std::ios_base::binary
 //file io
 const size_t MAX_FILENAME_LEN = 30;
-const size_t MAX_BLOCK_SIZE = 10 ;
+const size_t MAX_BLOCK_SIZE = 50;
 const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
-const int INVALID_OFFSET = 0;
+const size_t INVALID_OFFSET = -1;
 //node type
 const int INTERN_NODE = 1;
 const int LEAF_NODE = 2;
@@ -30,13 +30,13 @@ const char DB_MGR_SUFFIX[10] = ".dbmgr";
 template<typename Key, typename T, typename Compare>
 class BPTree;
 
-template<typename Key, typename T, typename Compare = std::greater<Key> >
+template<typename Key, typename T, typename Compare = std::less<Key> >
 class BPTree{
 private:
 
     struct treeData{
         Key k = Key();
-        size_t data = 0;
+        size_t data = INVALID_OFFSET;
     };
 
     struct retVal{
@@ -106,9 +106,7 @@ private:
             return tmp;
         }
         else{
-            //std::cerr << "write to end \n";
             writeNode(tmp);
-           // cerr << tmp->nodeOffset << "\n";
             return tmp;
         }
         delete tmp;
@@ -179,30 +177,33 @@ private:
         BPTNode *tmp = new BPTNode(INTERN_NODE);
         fidx.seekg(offset);
         fidx.read((char*)&(tmp->nodeType), sizeof(int));
-        //cerr <<"read Node "<< tmp->nodeType << "\n";
         fidx.read((char*)&(tmp->nextNode), sizeof(size_t));
         fidx.read((char*)&(tmp->sz), sizeof(size_t));
         fidx.read((char*)&(tmp->nodeOffset), sizeof(size_t));
-        fidx.read((char*)tmp->data, sizeof(tmp->data));
+        fidx.read((char*)&(tmp->data), sizeof(tmp->data));
+        //for(size_t i = 0; i < MAX_BLOCK_SIZE; ++i) fidx.read((char*)&(tmp->data[i]), sizeof(treeData));
         fidx.close();
         return tmp;
     }
     bool writeNode(BPTNode *p, size_t offset = 0){
-        if(fidx.is_open()) fidx.close();
+        if(fidx.is_open() || fidx.fail()) fidx.close();
         fidx.open(idxFileName, IOB);
         if(offset == 0){
             fidx.seekg(0, std::ios_base::end);
-           // cerr << " tellg " << fidx.tellg() <<"\n";
             offset = fidx.tellg();
         }
         p->nodeOffset = offset;
-        if(!fidx.is_open()) return 0;
+        if(fidx.fail()){
+            fidx.close();
+            return 0;
+        }
         fidx.seekp(offset);
         fidx.write((const char*)&(p->nodeType), sizeof(int));
         fidx.write((const char*)&(p->nextNode), sizeof(size_t));
         fidx.write((const char*)&(p->sz), sizeof(size_t));
         fidx.write((const char*)&(p->nodeOffset), sizeof(size_t));
-        fidx.write((const char*)p->data, sizeof(p->data));
+        fidx.write((const char*)&(p->data), sizeof(p->data));
+        //for(size_t i = 0; i < MAX_BLOCK_SIZE; ++i) fidx.write((const char*)&(p->data[i]), sizeof(treeData));
         fidx.close();
         return 1;
     }
@@ -214,13 +215,16 @@ private:
             currentNode = nullptr;
         }
         currentNode = readNode(rootOffset);
-       // cerr << "CHANGE TO ROOT, ROOT OFFSET IS " << rootOffset << "\n";
+        //cerr << "CHANGE TO ROOT, ROOT OFFSET IS " << rootOffset << "\n";
     }
 
    T *readData(size_t offset){
-        T *tmp = nullptr;
+        T *tmp = new T();
+        if(fdb.fail() || fdb.is_open()) fdb.close();
         fdb.open(dbFileName, IOB);
+        fdb.seekg(offset);
         fdb.read((char*)tmp, sizeof(T));
+        fdb.close();
         return tmp;
    }
 
@@ -251,7 +255,7 @@ private:
         if(!fidx){
             if(dl == 0) throw ImportFileNotExist();
             if(currentNode) delete currentNode;
-            //fidx.close();
+            fidx.close();
             //fidx.clear();
             //create new file if index not exist
             fidx.open(idxFileName, std::ios_base::out);
@@ -262,9 +266,8 @@ private:
             fmgr.close();
             fmgr.open(dbFileMgr, std::ios_base::out);
             fmgr.close();
-           // writeIdx();
+            writeIdx();
             currentNode = allocNode(LEAF_NODE); //written to end when alloc
-           // cerr << "create " << currentNode->nodeType << " with offset " << rootOffset << "\n";
             rootOffset = currentNode->nodeOffset;
             writeIdx();
             return 1;
@@ -278,14 +281,51 @@ private:
     }
 
     //Node merge, Node split
-    bool mergeAble(BPTNode *p){}
-    bool borrowAble(BPTNode *p){}
-    bool splitAble(BPTNode *p){
+    int mergeOrBorrow(const BPTNode *p){
+        if(p->sz >= (MAX_BLOCK_SIZE >> 1))return 0;
+        const BPTNode *pn = readNode(p->nextNode);
+        int ret = -1;
+        if(p->sz + pn->sz <= MAX_BLOCK_SIZE - 1) ret = 1;
+        else ret = 2;
+        delete pn;
+        pn = nullptr;
+        return ret;
+    }
+    bool splitAble(const BPTNode *p){
         if(p->sz == MAX_BLOCK_SIZE) return 1;
         else return 0;
     }
-    //merge to left
-    void mergeNode(BPTNode *l){
+    //merge with right
+    bool mergeNode(BPTNode *n){
+        if(n->sz >= (MAX_BLOCK_SIZE >> 1)) return 0;
+        BPTNode *nxt = readNode(n->nextNode);
+        if(n->sz + nxt->sz >= MAX_BLOCK_SIZE) return 0;
+        for(size_t i = 0; i < nxt->sz; ++i) n->data[n->sz + i] = nxt->data[i];
+        n->sz += nxt->sz;
+        writeNode(n, n->nodeOffset);
+        deleteNode(nxt->nodeOffset);
+        delete nxt;
+        nxt = nullptr;
+        return 1;
+    }
+
+    bool borrowFromRight(BPTNode *n){
+        if(n->sz >= (MAX_BLOCK_SIZE >> 1)) return 0;
+        size_t toMove = (MAX_BLOCK_SIZE >> 1)-  n->sz;
+        BPTNode *nxt = readNode(n->nextNode);
+        if(nxt->sz <= toMove){
+            delete nxt;
+            nxt = nullptr;
+            return 0;
+        }
+        for(size_t i = 0; i < toMove; ++i) n->data[n->sz + i] = nxt->data[i];
+        n->sz = (MAX_BLOCK_SIZE >> 1);
+        for(size_t i = toMove ; i < nxt->sz; ++i) nxt->data[i - toMove] = nxt->data[i];
+        nxt->sz -= toMove;
+        writeNode(n, n->nodeOffset);
+        writeNode(n, n->nodeOffset);
+        delete nxt;
+        nxt = nullptr;
     }
     //split
     treeData splitNode(BPTNode *p){
@@ -322,39 +362,44 @@ private:
     }
 
     //private find
-   treeData treeFind(const Key &k){
-        int cmpres = 0;
-        changeToRoot();
-        if(currentNode->sz == 0) return treeData();
-        cmpres = keyCompare(k,currentNode->data[0].k);
-        if(cmpres == 1) return treeData(); //if less than first element, return
-
-        while(currentNode->nodeType != LEAF_NODE){
-            cmpres = keyCompare(k,currentNode->data[0].k);
-            if(cmpres == 2){
-                BPTNode *tmp = readNode(currentNode->data[0].data);
-                delete currentNode;
-                currentNode = tmp;
-                tmp = nullptr;
-                continue;
-            }
-            for(size_t i = currentNode->sz - 1; i >= 0 && i <= currentNode->sz; --i){
-                if(i >= currentNode->sz) break;
-                cmpres = keyCompare(k, currentNode->data[i].k);
-                if(cmpres == 2 || cmpres == 0){
-                    BPTNode *tmp = currentNode;
-                    currentNode = readNode(currentNode->data[i].data);
-                    delete tmp;
-                    tmp =nullptr;
+   treeData treeFind(const Key &k, const BPTNode *&st){
+       int cmpres = 0;
+       size_t pos = st->sz;
+       const BPTNode *tmpn = nullptr;
+       treeData tmpr = treeData();
+       if(st->sz == 0) return treeData();
+       if(st->nodeType == LEAF_NODE){
+           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i){
+               cmpres = keyCompare(k, st->data[i].k);
+               if(cmpres == 2){
+                    pos = i;
                     break;
-                }
-            }
-        }
-        for(int i = 0; i < currentNode->sz; ++i){
-            cmpres = keyCompare(k, currentNode->data[i].k);
-            if(cmpres == 2) return treeData(currentNode->data[i]);
-        }
-        return treeData();
+               }
+           }
+           if(pos < st->sz){
+               tmpr = st->data[pos];
+               delete st;
+               st = nullptr;
+               return tmpr;
+           }
+           else{
+               delete st;
+               st = nullptr;
+               return tmpr;
+           }
+       }
+       for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i){
+          cmpres = keyCompare(k, st->data[i].k);
+          if(cmpres == 0 || cmpres == 2){
+               pos = i;
+               break;
+          }
+       }
+       tmpn = readNode(st->data[pos].data);
+       tmpr = treeFind(k, tmpn);
+       delete st;
+       st = nullptr;
+       return tmpr;
     }
 
    retVal treeInsert(const Key &k, const T &dta, BPTNode *&st){
@@ -507,7 +552,6 @@ private:
            return itmp;
        }
        else if(rtmp.status == INVALID){
-           //writeNode(st, st->nodeOffset);
            delete st;
            st = nullptr;
            return retVal(Key(), 0, INVALID);
@@ -564,7 +608,6 @@ public:
         }
         int cmpres = keyCompare(k, currentNode->data[0].k);
         if(cmpres == 1){
-           // cerr << "USE TREE INSERT FIRST ON KEY : " << k << "\n";
             rt = treeInsertFirst(k, dta, currentNode);
         }
         else if(cmpres == 0) {
@@ -575,9 +618,12 @@ public:
     }
 
     T *findU(const Key &k){
+        changeToRoot();
+        const BPTNode *crt = currentNode;
+        currentNode = nullptr;
         T *trt = nullptr;
-        treeData rt = treeFind(k);
-        trt = readData(rt.data);
+        treeData rt = treeFind(k, crt);
+        if(rt.data != -1) trt = readData(rt.data);
         return trt;
     }
     //bool removeData(){}
