@@ -6,21 +6,28 @@ struct tentimes
 {
     int arr[20];
 };
+int p = 0;
 int main(){
-        srand(time(0));
+        srand(114514);
         BPTree<int, size_t> tre("bryan");
-        for(int i = 500; i >= 1; --i){
+        for(int i = 1; i <= 10; ++i){
             //if(rand() % 2){
-            tre.insertData(i, rand() + i);//}
+            tre.insertData(i, 100 + i);//}
             //else
             //tre.insertData(-i, 100000 + i);
         }
-        size_t *res = nullptr;
-        for(int i = 1; i <= 500; ++i){
-        res = tre.findU(i);
-        if(!res) cerr << "NOTHING !\n";
-        else cerr << *res <<"\n";
+        //size_t *res = nullptr;
+        for(int i = 2; i <= 10; i+=2){
+        /*res = tre.findU(i);
+        if(!res) cout << "NOTHING !\t";
+        else cout << *res <<"\t";
         if(res) delete res;
-        res = nullptr;
+        res = nullptr;*/
+        tre.removeData(i);
+        /*res = tre.findU(i);
+         if(!res) cout << "NOTHING !\t";
+         else cout << *res <<"\t";*/
         }
-}
+        tre.dfs();
+        cout << "\n";
+  }
