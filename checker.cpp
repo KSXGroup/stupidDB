@@ -59,7 +59,7 @@ int main(){
     cout << "DUMP " << dbFileName << " TO SCREEN : \n";
     fidx.close();
     fidx.open(dbFileName, IOB);
-    /*for(int i = 1; i <= 100; ++i){
+    for(int i = 1; i <= 100; ++i){
         cout << "DBDATA #" << i << " : ";
         size_t y = 0;
         //cout << fidx.tellg() << " : ";
@@ -70,7 +70,7 @@ int main(){
             cout << "\n";
             cnter = 0;
         }
-    }*/
+    }
     cout << "\n";
 }
 

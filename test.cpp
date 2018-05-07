@@ -10,14 +10,14 @@ int p = 0;
 int main(){
         srand(114514);
         BPTree<int, size_t> tre("bryan");
-        for(int i = 1; i <= 10; ++i){
+        for(int i = 1; i <= 10000; ++i){
             //if(rand() % 2){
             tre.insertData(i, 100 + i);//}
             //else
             //tre.insertData(-i, 100000 + i);
         }
         //size_t *res = nullptr;
-        for(int i = 2; i <= 10; i+=2){
+        for(int i = 2; i <= 10000; i+=2){
         /*res = tre.findU(i);
         if(!res) cout << "NOTHING !\t";
         else cout << *res <<"\t";

@@ -12,7 +12,7 @@
 size_t write_cnt = 0;
 //file io
 const size_t MAX_FILENAME_LEN = 30;
-const size_t MAX_BLOCK_SIZE = 4;
+const size_t MAX_BLOCK_SIZE = 4000;
 const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
 const size_t INVALID_OFFSET = -1;
 //node type
@@ -348,12 +348,12 @@ private:
         tmpr.status = INVALID;
         if(n->sz >= (MAX_BLOCK_SIZE >> 1)) return tmpr;
         if(prev->sz <= (MAX_BLOCK_SIZE >> 1)) return tmpr;
-        for(size_t i = n->sz - 1; i >= 1 && i <= n->sz - 1; --i) n->data[i + 1] = n->data[i];
+        for(size_t i = n->sz - 1; i >= 0 && i <= n->sz - 1; --i) n->data[i + 1] = n->data[i];
         n->data[0] = prev->data[prev->sz - 1];
         n->sz++;
         prev->sz--;
         writeNode(n, n->nodeOffset);
-        writeNode(prev, n->nodeOffset);
+        writeNode(prev, prev->nodeOffset);
         tmpr.retDta = n->data[0];
         tmpr.retDta.data = n->nodeOffset;
         tmpr.status = BORROWEDLEFT;
