@@ -11,7 +11,7 @@
 #define OFFSET_TYPE unsigned long long
 //file io
 const OFFSET_TYPE MAX_FILENAME_LEN = 30;
-const OFFSET_TYPE MAX_BLOCK_SIZE = 4;
+const OFFSET_TYPE MAX_BLOCK_SIZE = 400;
 const OFFSET_TYPE FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof( OFFSET_TYPE );
 const OFFSET_TYPE INVALID_OFFSET = -1;
 //node type
@@ -128,8 +128,8 @@ private:
     }
 
     inline bool deleteNode(BPTNode *p, OFFSET_TYPE offset){
-        p->nodeType = DELETED;
-        writeNode(p, p->nodeOffset);
+       // p->nodeType = DELETED;
+        //writeNode(p, p->nodeOffset);
         QidxMgr.push(offset);
     }
 
@@ -263,11 +263,11 @@ private:
 
    OFFSET_TYPE deleteData(OFFSET_TYPE offset){
        //DBG
-       OFFSET_TYPE p = -1;
+       //OFFSET_TYPE p = -1;
        fdb.close();
        fdb.open(dbFileName, IOB);
        fdb.seekp(offset);
-       fdb.write((char*)&p, sizeof( OFFSET_TYPE ));
+       //fdb.write((char*)&p, sizeof( OFFSET_TYPE ));
        fdb.close();
        QdbMgr.push(offset);
    }
@@ -660,12 +660,11 @@ private:
            writeNode(tmpn, tmpn->nodeOffset);
        }
        else tmpr = treeRemove(k, tmpn);
+       if(tmpn->nodeType != LEAF_NODE && tmpr.status != NOTEXIST && tmpr.status != INVALID){
+           st->data[posFa] = tmpn->data[0];
+           st->data[posFa].data = tmpn->nodeOffset;
+       }
        if(tmpr.status == MERGELEFT || tmpr.status == MERGERIGHT || tmpn->nodeType == LEAF_NODE){
-           if(tmpr.status == MERGELEFT || tmpr.status == MERGERIGHT){
-               st->data[posFa] = tmpn->data[0];
-               st->data[posFa].data = tmpn->nodeOffset;
-               writeNode(st, st->nodeOffset);
-           }
            if(tmpn->sz < (MAX_BLOCK_SIZE >> 1)){
                if(posFa +  1 <= st->sz - 1) tmpRight = readNode(st->data[posFa + 1].data);
                if(posFa - 1 <= st->sz - 1) tmpLeft = readNode(st->data[posFa - 1].data);
@@ -720,6 +719,7 @@ private:
                return tmpr;
            }
            else{
+               writeNode(st, st->nodeOffset);
                delete tmpn;
                tmpn = nullptr;
                tmpr.status = NOTHING;
