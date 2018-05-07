@@ -12,7 +12,7 @@
 size_t write_cnt = 0;
 //file io
 const size_t MAX_FILENAME_LEN = 30;
-const size_t MAX_BLOCK_SIZE = 4000;
+const size_t MAX_BLOCK_SIZE = 4;
 const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
 const size_t INVALID_OFFSET = -1;
 //node type
@@ -369,7 +369,7 @@ private:
         p->nextNode = ntmp->nodeOffset;
         if(tmpNext){
             tmpNext->prevNode = ntmp->nodeOffset;
-            writeNode(tmpNext);
+            writeNode(tmpNext, tmpNext->nodeOffset);
             delete tmpNext;
             tmpNext = nullptr;
         }
