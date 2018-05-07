@@ -8,13 +8,12 @@
 #include "dbException.hpp"
 #define IOB std::ios_base::in | std::ios_base::out | std::ios_base::binary
 #define TIOB std::ios_base::trunc | std::ios_base::in | std::ios_base::out | std::ios_base::binary
-//debug
-size_t write_cnt = 0;
+#define OFFSET_TYPE unsigned long long
 //file io
-const size_t MAX_FILENAME_LEN = 30;
-const size_t MAX_BLOCK_SIZE = 4;
-const size_t FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof(size_t);
-const size_t INVALID_OFFSET = -1;
+const  OFFSET_TYPE  MAX_FILENAME_LEN = 30;
+const  OFFSET_TYPE  MAX_BLOCK_SIZE = 4;
+const  OFFSET_TYPE  FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof( OFFSET_TYPE );
+const  OFFSET_TYPE  INVALID_OFFSET = -1;
 //node type
 const int INTERN_NODE = 1;
 const int LEAF_NODE = 2;
@@ -43,7 +42,7 @@ private:
 
     struct treeData{
         Key k = Key();
-        size_t data = INVALID_OFFSET;
+         OFFSET_TYPE  data = INVALID_OFFSET;
         treeData() = default;
     };
 
@@ -51,7 +50,7 @@ private:
         treeData retDta;
         int status = INVALID;
         retVal() = default;
-        retVal(const Key &_k, const size_t &_d, const int &_status):status(_status){
+        retVal(const Key &_k, const  OFFSET_TYPE  &_d, const int &_status):status(_status){
             retDta.data = _d;
             retDta.k = _k;
         }
@@ -70,10 +69,10 @@ private:
 
         //DATA
         int nodeType = DELETED;
-        size_t sz = 0;
-        size_t nodeOffset = INVALID_OFFSET;
-        size_t nextNode = INVALID_OFFSET;
-        size_t prevNode = INVALID_OFFSET;
+         OFFSET_TYPE  sz = 0;
+         OFFSET_TYPE  nodeOffset = INVALID_OFFSET;
+         OFFSET_TYPE  nextNode = INVALID_OFFSET;
+         OFFSET_TYPE  prevNode = INVALID_OFFSET;
         treeData data[MAX_BLOCK_SIZE];
     };
 
@@ -90,17 +89,17 @@ private:
     char idxFileMgr[MAX_FILENAME_LEN];
     char dbFileName[MAX_FILENAME_LEN];
     char dbFileMgr[MAX_FILENAME_LEN];
-    size_t dataSize = 0;
-    size_t rootOffset = 0;
+     OFFSET_TYPE  dataSize = 0;
+     OFFSET_TYPE  rootOffset = 0;
     std::fstream fidx;
     std::fstream fdb;
     std::fstream fmgr;
-    std::queue<size_t> QidxMgr;
-    std::queue<size_t> QdbMgr;
+    std::queue< OFFSET_TYPE > QidxMgr;
+    std::queue< OFFSET_TYPE > QdbMgr;
     BPTNode* currentNode = nullptr;
 
 //*******************necessary function *****************//
-    inline size_t min(const size_t &a, const size_t &b){
+    inline  OFFSET_TYPE  min(const  OFFSET_TYPE  &a, const  OFFSET_TYPE  &b){
         return a < b ? a : b;
     }
 
@@ -110,7 +109,7 @@ private:
     BPTNode *allocNode(const int &nodeType){
         if(fmgr.is_open()) fmgr.close();
         BPTNode *tmp = new BPTNode(nodeType);
-        size_t offset = 0;
+         OFFSET_TYPE  offset = 0;
         fmgr.open(idxFileMgr, IOB);
         if(!QidxMgr.empty()){
             offset = QidxMgr.front();
@@ -128,7 +127,7 @@ private:
         return tmp;
     }
 
-    inline bool deleteNode(BPTNode *p, size_t offset){
+    inline bool deleteNode(BPTNode *p,  OFFSET_TYPE  offset){
         p->nodeType = DELETED;
         writeNode(p, p->nodeOffset);
         QidxMgr.push(offset);
@@ -139,8 +138,8 @@ private:
         fidx.open(idxFileName, IOB);
         fidx.write(idxFileName, sizeof(char) * MAX_FILENAME_LEN);
         fidx.write(dbFileName, sizeof(char) * MAX_FILENAME_LEN);
-        fidx.write((const char*)&dataSize, sizeof(size_t));
-        fidx.write((const char*)&rootOffset, sizeof(size_t));
+        fidx.write((const char*)&dataSize, sizeof( OFFSET_TYPE ));
+        fidx.write((const char*)&rootOffset, sizeof( OFFSET_TYPE ));
         fidx.close();
         return 1;
     }
@@ -149,24 +148,24 @@ private:
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
         char tmp[MAX_FILENAME_LEN];
-        size_t offset = 0;
+         OFFSET_TYPE  offset = 0;
         fidx.read(tmp, sizeof(char) * MAX_FILENAME_LEN);
         if(strcmp(idxFileName, tmp) != 0) throw fileNotMatch();
         strcpy(idxFileName, tmp);
         fidx.read(dbFileName, sizeof(char) * MAX_FILENAME_LEN);
-        fidx.read((char*)&dataSize, sizeof(size_t));
-        fidx.read((char*)&rootOffset, sizeof(size_t));
+        fidx.read((char*)&dataSize, sizeof( OFFSET_TYPE ));
+        fidx.read((char*)&rootOffset, sizeof( OFFSET_TYPE ));
         fidx.close();
 
         //I will read mgr file into Q here
-        size_t fsize = 0;
+         OFFSET_TYPE  fsize = 0;
         fmgr.open(idxFileMgr, IOB);
         fmgr.seekg(0, std::ios_base::end);
         fsize = fmgr.tellg();
         fmgr.seekg(0);
         if(fsize != 0){
             while(fmgr.tellg() != fsize){
-                fmgr.read((char*)&offset, sizeof(size_t));
+                fmgr.read((char*)&offset, sizeof( OFFSET_TYPE ));
                 QidxMgr.push(offset);
             }
         }
@@ -177,7 +176,7 @@ private:
         fmgr.seekg(0);
         if(fsize != 0){
             while(fmgr.tellg() != fsize){
-                fmgr.read((char*)&offset, sizeof(size_t));
+                fmgr.read((char*)&offset, sizeof( OFFSET_TYPE ));
                 QdbMgr.push(offset);
             }
         }
@@ -186,22 +185,22 @@ private:
     }
 
     //dont forget to delete after use readNode()!
-    BPTNode *readNode(size_t offset){
+    BPTNode *readNode( OFFSET_TYPE  offset){
         if(fidx.is_open() || fidx.fail()) fidx.close();
         fidx.open(idxFileName, IOB);
         if(!fidx.is_open() || fidx.fail() ) return nullptr;
         BPTNode *tmp = new BPTNode;
         fidx.seekg(offset);
         fidx.read((char*)&(tmp->nodeType), sizeof(int));
-        fidx.read((char*)&(tmp->nextNode), sizeof(size_t));
-        fidx.read((char*)&(tmp->prevNode), sizeof(size_t));
-        fidx.read((char*)&(tmp->sz), sizeof(size_t));
-        fidx.read((char*)&(tmp->nodeOffset), sizeof(size_t));
+        fidx.read((char*)&(tmp->nextNode), sizeof( OFFSET_TYPE ));
+        fidx.read((char*)&(tmp->prevNode), sizeof( OFFSET_TYPE ));
+        fidx.read((char*)&(tmp->sz), sizeof( OFFSET_TYPE ));
+        fidx.read((char*)&(tmp->nodeOffset), sizeof( OFFSET_TYPE ));
         fidx.read((char*)(tmp->data), sizeof(treeData) * MAX_BLOCK_SIZE);
         fidx.close();
         return tmp;
     }
-    bool writeNode(BPTNode *p, size_t offset = 0){
+    bool writeNode(BPTNode *p,  OFFSET_TYPE  offset = 0){
         if(fidx.is_open() || fidx.fail()) fidx.close();
         fidx.open(idxFileName, IOB);
         if(offset == 0){
@@ -215,10 +214,10 @@ private:
         }
         fidx.seekp(offset);
         fidx.write((const char*)&(p->nodeType), sizeof(int));
-        fidx.write((const char*)&(p->nextNode), sizeof(size_t));
-        fidx.write((const char*)&(p->prevNode), sizeof(size_t));
-        fidx.write((const char*)&(p->sz), sizeof(size_t));
-        fidx.write((const char*)&(p->nodeOffset), sizeof(size_t));
+        fidx.write((const char*)&(p->nextNode), sizeof( OFFSET_TYPE ));
+        fidx.write((const char*)&(p->prevNode), sizeof( OFFSET_TYPE ));
+        fidx.write((const char*)&(p->sz), sizeof( OFFSET_TYPE ));
+        fidx.write((const char*)&(p->nodeOffset), sizeof( OFFSET_TYPE ));
         fidx.write((const char*)(p->data), sizeof(treeData) * MAX_BLOCK_SIZE);
         fidx.close();
         return 1;
@@ -233,7 +232,7 @@ private:
         currentNode = readNode(rootOffset);
     }
 
-   T *readData(size_t offset){
+   T *readData( OFFSET_TYPE  offset){
         T *tmp = new T();
         if(fdb.fail() || fdb.is_open()) fdb.close();
         fdb.open(dbFileName, IOB);
@@ -243,9 +242,9 @@ private:
         return tmp;
    }
 
-   size_t writeData(const T *dataPtr){
+    OFFSET_TYPE  writeData(const T *dataPtr){
        if(fdb.is_open() || fdb.fail()) fdb.close();
-       size_t offset = 0;
+        OFFSET_TYPE  offset = 0;
        fdb.open(dbFileName, IOB);
        if(!fdb) return 0;
        if(!QdbMgr.empty()){
@@ -262,18 +261,18 @@ private:
        return offset;
    }
 
-   size_t deleteData(size_t offset){
+    OFFSET_TYPE  deleteData( OFFSET_TYPE  offset){
        //DBG
-       size_t p = -1;
+        OFFSET_TYPE  p = -1;
        fdb.close();
        fdb.open(dbFileName, IOB);
        fdb.seekp(offset);
-       fdb.write((char*)&p, sizeof(size_t));
+       fdb.write((char*)&p, sizeof( OFFSET_TYPE ));
        fdb.close();
        QdbMgr.push(offset);
    }
 
-    bool importIdxFile(const size_t dl){
+    bool importIdxFile(const  OFFSET_TYPE  dl){
         if(fidx.is_open()) fidx.close();
         fidx.open(idxFileName, IOB);
         if(!fidx){
@@ -310,7 +309,7 @@ private:
     //merge with right
     bool mergeNode(BPTNode *l, BPTNode *r){
         if(l == nullptr || r == nullptr || l->sz + r->sz >= MAX_BLOCK_SIZE) assert(0);
-        for(size_t i = 0; i < r->sz; ++i) l->data[l->sz + i] = r->data[i];
+        for( OFFSET_TYPE  i = 0; i < r->sz; ++i) l->data[l->sz + i] = r->data[i];
         l->nextNode = r->nextNode;
         if(r->nextNode != (long long)(-1)){
             BPTNode *tmpRight = readNode(r->nextNode);
@@ -333,7 +332,7 @@ private:
         if(nxt->sz <=(MAX_BLOCK_SIZE >> 1)) return tmpr;
         n->data[n->sz] = nxt->data[0];
         n->sz++;
-        for(size_t i = 0 ; i < nxt->sz - 1; ++i) nxt->data[i] = nxt->data[i + 1];
+        for( OFFSET_TYPE  i = 0 ; i < nxt->sz - 1; ++i) nxt->data[i] = nxt->data[i + 1];
         nxt->sz--;
         writeNode(n, n->nodeOffset);
         writeNode(nxt, nxt->nodeOffset);
@@ -348,7 +347,7 @@ private:
         tmpr.status = INVALID;
         if(n->sz >= (MAX_BLOCK_SIZE >> 1)) return tmpr;
         if(prev->sz <= (MAX_BLOCK_SIZE >> 1)) return tmpr;
-        for(size_t i = n->sz - 1; i >= 0 && i <= n->sz - 1; --i) n->data[i + 1] = n->data[i];
+        for( OFFSET_TYPE  i = n->sz - 1; i >= 0 && i <= n->sz - 1; --i) n->data[i + 1] = n->data[i];
         n->data[0] = prev->data[prev->sz - 1];
         n->sz++;
         prev->sz--;
@@ -373,7 +372,7 @@ private:
             delete tmpNext;
             tmpNext = nullptr;
         }
-        for(size_t i = (MAX_BLOCK_SIZE >> 1) ; i < MAX_BLOCK_SIZE; ++i) ntmp->data[i - (MAX_BLOCK_SIZE >> 1)] = p->data[i];
+        for( OFFSET_TYPE  i = (MAX_BLOCK_SIZE >> 1) ; i < MAX_BLOCK_SIZE; ++i) ntmp->data[i - (MAX_BLOCK_SIZE >> 1)] = p->data[i];
         p->sz = (MAX_BLOCK_SIZE >> 1) ;
         ntmp->sz = MAX_BLOCK_SIZE - (MAX_BLOCK_SIZE >> 1);
         writeNode(p, p->nodeOffset);
@@ -401,11 +400,11 @@ private:
     //private find
    treeData treeFind(const Key &k, const BPTNode *&st){
        int cmpres = 0;
-       size_t pos = st->sz;
+        OFFSET_TYPE  pos = st->sz;
        const BPTNode *tmpn = nullptr;
        treeData tmpr = treeData();
        if(st->nodeType == LEAF_NODE){
-           for(size_t i = st->sz - 1; i >= 0 && i < st->sz; --i){
+           for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i < st->sz; --i){
                cmpres = keyCompare(k, st->data[i].k);
                if(cmpres == 2){
                     pos = i;
@@ -425,7 +424,7 @@ private:
            }
        }
        pos = st->sz;
-       for(size_t i = st->sz - 1; i >= 0 && i < st->sz; --i){
+       for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i < st->sz; --i){
           cmpres = keyCompare(k, st->data[i].k);
           if(cmpres == 0 || cmpres == 2){
                pos = i;
@@ -454,7 +453,7 @@ private:
                st = nullptr;
                return itmp;
            }
-           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i){
+           for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i <= st->sz; --i){
                cmpres = keyCompare(k, st->data[i].k);
                if(cmpres == 2){
                    delete st;
@@ -462,7 +461,7 @@ private:
                    return retVal(Key(), 0, INVALID);
                }
                else if(cmpres == 0){
-                   for(size_t j = st->sz - 1; j >= i + 1 && j <= st->sz; --j) st->data[j + 1] = st->data[j];
+                   for( OFFSET_TYPE  j = st->sz - 1; j >= i + 1 && j <= st->sz; --j) st->data[j + 1] = st->data[j];
                    treeData ins;
                    ins.data = writeData(&dta);
                    ins.k = k;
@@ -484,7 +483,7 @@ private:
                }
            }
        }
-       for(size_t i = st->sz - 1; i >= 0 && i <= st->sz; --i){
+       for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i <= st->sz; --i){
            cmpres = keyCompare(k, st->data[i].k);
            if(cmpres == 0){
                BPTNode *btmp = readNode(st->data[i].data);
@@ -498,7 +497,7 @@ private:
                    return itmp;
                }
                else if(dtmp.status == SPLITED){
-                   for(size_t j = st->sz - 1; j >= i + 1 && j <= st->sz; --j) st->data[j + 1] = st->data[j];
+                   for( OFFSET_TYPE  j = st->sz - 1; j >= i + 1 && j <= st->sz; --j) st->data[j + 1] = st->data[j];
                    st->data[i + 1] = dtmp.retDta;
                    st->sz++;
                    writeNode(st, st->nodeOffset);
@@ -542,7 +541,7 @@ private:
                st = nullptr;
                return itmp;
            }
-           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i) st->data[i + 1] = st->data[i];
+           for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i) st->data[i + 1] = st->data[i];
            st->data[0].k = tk;
            st->data[0].data = writeData(&dta);
            st->sz++;
@@ -565,7 +564,7 @@ private:
        st->data[0].k = tk;
        retVal rtmp = treeInsertFirst(tk, dta, ntmp);
        if(rtmp.status == SPLITED){
-           for(size_t i = st->sz - 1; i >= 1 && i <= st->sz; --i) st->data[i + 1] = st->data[i];
+           for( OFFSET_TYPE  i = st->sz - 1; i >= 1 && i <= st->sz; --i) st->data[i + 1] = st->data[i];
            st->data[1] = rtmp.retDta;
            st->sz++;
            writeNode(st, st->nodeOffset);
@@ -600,7 +599,7 @@ private:
    retVal treeRemove(const Key &k, BPTNode *st){
        retVal tmpr;
        BPTNode *tmpn = nullptr, *tmpLeft = nullptr, *tmpRight = nullptr;
-       size_t posFa = st->sz, posSon = 0;
+        OFFSET_TYPE  posFa = st->sz, posSon = 0;
        int cmpres = -1;
        if(st->sz == 0){
            tmpr.status = INVALID;
@@ -609,7 +608,7 @@ private:
 
        if(st->nodeType == LEAF_NODE){
            //assert(st->nodeOffset == rootOffset);
-           for(size_t i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i){
+           for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i){
                cmpres = keyCompare(k, st->data[i].k);
                if(cmpres == 2){
                    posFa = i;
@@ -621,14 +620,14 @@ private:
                return tmpr;
            }
            deleteData(st->data[posFa].data);
-           for(size_t i = posFa; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
+           for( OFFSET_TYPE  i = posFa; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
            st->sz--;
            writeNode(st, st->nodeOffset);
            tmpr.status = NOTHING;
            return tmpr;
        }
 
-       for(size_t i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i){
+       for( OFFSET_TYPE  i = st->sz - 1; i >= 0 && i <= st->sz - 1; --i){
            cmpres = keyCompare(k, st->data[i].k);
            if(cmpres == 0 || cmpres == 2){
                posFa = i;
@@ -642,7 +641,7 @@ private:
        tmpn = readNode(st->data[posFa].data);
        posSon = tmpn->sz;
        if(tmpn->nodeType == LEAF_NODE){
-           for(size_t i = tmpn->sz - 1; i >= 0 && i <= tmpn->sz - 1; --i){
+           for( OFFSET_TYPE  i = tmpn->sz - 1; i >= 0 && i <= tmpn->sz - 1; --i){
                cmpres = keyCompare(k, tmpn->data[i].k);
                if(cmpres == 2){
                    posSon = i;
@@ -656,7 +655,7 @@ private:
                return tmpr;
            }
            deleteData(tmpn->data[posSon].data);
-           for(size_t i = posSon; i < tmpn->sz - 1; ++i) tmpn->data[i] = tmpn->data[i + 1];
+           for( OFFSET_TYPE  i = posSon; i < tmpn->sz - 1; ++i) tmpn->data[i] = tmpn->data[i + 1];
            tmpn->sz--;
            writeNode(tmpn, tmpn->nodeOffset);
        }
@@ -683,7 +682,7 @@ private:
                }
                else if(tmpLeft && tmpLeft->sz <= (MAX_BLOCK_SIZE >> 1)){
                    mergeNode(tmpLeft, tmpn);
-                   for(size_t i = posFa; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
+                   for( OFFSET_TYPE  i = posFa; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
                    st->sz--;
                    writeNode(st, st->nodeOffset);
                    if(st->sz == 1 && st->nodeOffset == rootOffset){
@@ -697,7 +696,7 @@ private:
                }
                else if(tmpRight && tmpRight->sz <= (MAX_BLOCK_SIZE >> 1)){
                    mergeNode(tmpn, tmpRight);
-                   for(size_t i = posFa + 1; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
+                   for( OFFSET_TYPE  i = posFa + 1; i < st->sz - 1; ++i) st->data[i] = st->data[i + 1];
                    st->sz--;
                    writeNode(st, st->nodeOffset);
                    if(st->sz == 1 && st->nodeOffset == rootOffset){
@@ -760,7 +759,7 @@ private:
         const BPTNode *tmpn = nullptr;
         const T *tmpd = nullptr;
        if(st->nodeType == INTERN_NODE){
-           for(size_t i = 0; i < st->sz; ++i){
+           for( OFFSET_TYPE  i = 0; i < st->sz; ++i){
                tmpn = readNode(st->data[i].data);
                treeDfs(tmpn);
            }
@@ -769,7 +768,7 @@ private:
            return;
        }
        if(st->nodeType == LEAF_NODE){
-           for(size_t i = 0; i < st->sz; ++i){
+           for( OFFSET_TYPE  i = 0; i < st->sz; ++i){
                tmpd = readData(st->data[i].data);
                cout << *tmpd << "\t";
                delete tmpd;
@@ -787,10 +786,10 @@ public:
         memset(dbFileName, 0, sizeof(dbFileName));
         memset(idxFileMgr, 0, sizeof(idxFileMgr));
         memset(dbFileMgr, 0, sizeof(dbFileMgr));
-        for(size_t i = 0; i <= strlen(s); ++i) idxFileName[i] = s[i];
-        for(size_t i = 0; i <= strlen(s); ++i) dbFileName[i] = s[i];
-        for(size_t i = 0; i <= strlen(s); ++i) idxFileMgr[i] = s[i];
-        for(size_t i = 0; i <= strlen(s); ++i) dbFileMgr[i] = s[i];
+        for( OFFSET_TYPE  i = 0; i <= strlen(s); ++i) idxFileName[i] = s[i];
+        for( OFFSET_TYPE  i = 0; i <= strlen(s); ++i) dbFileName[i] = s[i];
+        for( OFFSET_TYPE  i = 0; i <= strlen(s); ++i) idxFileMgr[i] = s[i];
+        for( OFFSET_TYPE  i = 0; i <= strlen(s); ++i) dbFileMgr[i] = s[i];
         strcat(idxFileName, IDX_SUFFIX);
         strcat(dbFileName, DB_SUFFIX);
         strcat(idxFileMgr, IDX_MGR_SUFFIX);
@@ -801,21 +800,21 @@ public:
     ~BPTree(){
         if(currentNode) delete currentNode;
         currentNode = nullptr;
-        size_t offset = 0;
+         OFFSET_TYPE  offset = 0;
 
         //Dump Q into files
         if(fmgr.is_open() || fmgr.fail()) fmgr.close();
         fmgr.open(idxFileMgr, TIOB);
         while(!QidxMgr.empty()){
             offset = QidxMgr.front();
-            fmgr.write((char*)&offset, sizeof(size_t));
+            fmgr.write((char*)&offset, sizeof( OFFSET_TYPE ));
             QidxMgr.pop();
         }
         fmgr.close();
         fmgr.open(dbFileMgr, TIOB);
         while(!QdbMgr.empty()){
             offset = QdbMgr.front();
-            fmgr.write((char*)&offset, sizeof(size_t));
+            fmgr.write((char*)&offset, sizeof( OFFSET_TYPE ));
             QdbMgr.pop();
         }
         fmgr.close();
