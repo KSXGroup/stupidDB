@@ -138,8 +138,8 @@ private:
     }
 
     inline bool deleteNode(BPTNode *p, OFFSET_TYPE offset){
-        p->nodeType = DELETED;
-        writeNode(p, p->nodeOffset);
+        /*p->nodeType = DELETED;
+        writeNode(p, p->nodeOffset);*/
         QidxMgr.push(offset);
     }
 
@@ -274,12 +274,12 @@ private:
 
    OFFSET_TYPE deleteData(OFFSET_TYPE offset){
        //DBG
-       OFFSET_TYPE p = -1;
+       /*OFFSET_TYPE p = -1;
        fdb.close();
        fdb.open(dbFileName, IOB);
        fdb.seekp(offset);
        fdb.write((char*)&p, sizeof( OFFSET_TYPE ));
-       fdb.close();
+       fdb.close();*/
        QdbMgr.push(offset);
    }
 
