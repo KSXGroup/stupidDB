@@ -10,7 +10,7 @@ int main(){
     };
     fstream fidx;
     int type = 0;
-    size_t next = 0,prev = 0, size = 0, offset = 0;
+    size_t next = 0,prev = 0, size = 0, offset = 0, posd = 0, posn = 0;
     int cnter = 0;
     char s[20], tmp[MAX_FILENAME_LEN], dbFileName[MAX_FILENAME_LEN];
     node tmpdata[MAX_BLOCK_SIZE];
@@ -19,7 +19,7 @@ int main(){
     strcat(s, IDX_SUFFIX);
     fidx.open(s, IOB);
     fidx.seekg(0, ios_base::end);
-    cout << "tellp() " << fidx.tellp() << "\n";
+    cout << "tellg() " << fidx.tellg() << "\n";
     fidx.seekg(0);
     fidx.read(tmp, sizeof(char) * MAX_FILENAME_LEN);
     fidx.read(dbFileName, sizeof(char) * MAX_FILENAME_LEN);
@@ -29,9 +29,10 @@ int main(){
     cout << "DB_FILENAME : " << dbFileName << "\n";
     cout << "DATA_SIZE : " << dataSize << "\n";
     cout << "OFFSET OF ROOT NODE : " << rootOffset << "\n";
-    for(int i = 1; i <= 20 ; ++i){
+    posn = 0;
+    while(fidx.tellg() != -1){
         cout << "\n";
-        cout << "NODE #" << i << "\n";
+        cout << "NODE #" << ++posn << "\n";
         cout << "FSTREAM START AT tellg() = " << fidx.tellg() << "\n";
         fidx.read((char*)&(type), sizeof(int));
         fidx.read((char*)&(next), sizeof(size_t));
@@ -49,6 +50,7 @@ int main(){
         for(int i = 0; i < size; ++i){
             cout << "NODEDATA#" << i << " : " << " KEY : " << tmpdata[i].a << "   DATA : " << tmpdata[i].b << "\n";
         }
+        cout << "NOW tellg()" << fidx.tellg() << "\n";
         cout << "\n";
         type = 0;
         next = 0;
@@ -59,8 +61,9 @@ int main(){
     cout << "DUMP " << dbFileName << " TO SCREEN : \n";
     fidx.close();
     fidx.open(dbFileName, IOB);
-    for(int i = 1; i <= 100; ++i){
-        cout << "DBDATA #" << i << " : ";
+    posd = 0;
+     while(fidx.tellg()!=-1){
+        cout << "DBDATA #" << posd++ << " : ";
         size_t y = 0;
         //cout << fidx.tellg() << " : ";
         fidx.read((char*)&y, sizeof(size_t));

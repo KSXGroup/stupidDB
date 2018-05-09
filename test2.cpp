@@ -3,7 +3,7 @@
 #define rep(i,a,b) for(int i=a;i<=b;i++)
 using namespace std;
 
-const int N = 1000000;
+const int N = 50000;
 
 class cmp{
 public:
@@ -38,7 +38,7 @@ int main() {
 			}
 		}
 		else {
-			int t = rand() * rand() + 1;
+                        int t = rand() + 1;
                         printf("ins %d %d\n", pos, t);
 			a[pos] = t;
 			tmp.insertData(pos, t);
