@@ -61,11 +61,11 @@ private:
     struct BPTNode{
         BPTNode() = default;
         BPTNode(const int &ndt):nodeType(ndt){}
-        BPTNode(const BPTNode &other){
+        /*BPTNode(const BPTNode &other){
             nodeType = other.nodeType;
             sz = other.sz;
             for(int i = 0; i < sz; ++i) data[i] = other.data[i];
-        }
+        }*/
 
         //DATA
         int nodeType = DELETED;
@@ -77,14 +77,14 @@ private:
     };
 
 private:
-    int keyCompare(const Key &a, const Key &b){
+    inline int keyCompare(const Key &a, const Key &b){
         Compare cmp;
         if(cmp(a, b)) return 1; // less
         if(cmp(b, a)) return 0; // more
         return 2; //equal;
     }
 
-    OFFSET_TYPE binSearch(const BPTNode *p, const Key &k){
+    inline OFFSET_TYPE binSearch(const BPTNode *p, const Key &k){
         OFFSET_TYPE lo = 0, hi = p->sz - 1, mid = 0;
         while(hi != lo){
             mid = (lo + hi + 1) >> 1;
@@ -107,11 +107,6 @@ private:
     std::queue< OFFSET_TYPE > QidxMgr;
     std::queue< OFFSET_TYPE > QdbMgr;
     BPTNode* currentNode = nullptr;
-
-//*******************necessary function *****************//
-    inline OFFSET_TYPE min(const OFFSET_TYPE &a, const OFFSET_TYPE &b){
-        return a < b ? a : b;
-    }
 
 //*******************file IO****************************//
 
@@ -266,6 +261,16 @@ private:
            fdb.seekg(0, std::ios_base::end);
            offset = fdb.tellg();
        }
+       fdb.seekp(offset);
+       fdb.write((const char*)dataPtr, sizeof(T));
+       fdb.close();
+       return offset;
+   }
+
+   OFFSET_TYPE modData(const T *dataPtr, const OFFSET_TYPE &offset){
+       if(fdb.is_open() || fdb.fail()) fdb.close();
+       fdb.open(dbFileName, IOB);
+       if(fdb.fail()) return INVALID_OFFSET;
        fdb.seekp(offset);
        fdb.write((const char*)dataPtr, sizeof(T));
        fdb.close();
@@ -594,7 +599,7 @@ private:
            return retVal(Key(), 0, INVALID);
        }
    }
-
+    //private remove
    retVal treeRemove(const Key &k, BPTNode *st){
        int cmpres = -1;
        retVal tmpr;
@@ -717,6 +722,48 @@ private:
 
    }
 
+   //private modify
+   int treeModify(const Key &k, const T &dta, const BPTNode *st){
+       const BPTNode *tmpn = nullptr;
+       int cmpres = 0;
+       OFFSET_TYPE posFa = st->sz, posSon = 0, res = 0;
+       int ret = -1;
+       if(st->sz == 0) return NOTEXIST;
+       if(st->nodeType == LEAF_NODE){
+           posFa = binSearch(st, k);
+           cmpres = keyCompare(k, st->data[posFa].k);
+           if(cmpres != 2) return NOTEXIST;
+           else res = modData(&dta,st->data[posFa].data);
+           if(res == -1) return INVALID;
+           else return NOTHING;
+       }
+       posFa = binSearch(st, k);
+       cmpres = keyCompare(k, st->data[posFa].k);
+       if(cmpres == 1) return INVALID;
+       tmpn = readNode(st->data[posFa].data);
+       if(tmpn->nodeType == LEAF_NODE){
+           posSon = binSearch(tmpn, k);
+           if(keyCompare(k, tmpn->data[posSon].k) != 2){
+               delete tmpn;
+               tmpn = nullptr;
+               return NOTEXIST;
+           }
+           else{
+               res = modData(&dta, tmpn->data[posSon].data);
+               delete tmpn;
+               tmpn = nullptr;
+               return res == -1 ? INVALID : NOTHING;
+           }
+       }
+       else{
+           ret = treeModify(k, dta, tmpn);
+           delete tmpn;
+           tmpn = nullptr;
+           return ret;
+       }
+
+   }
+
    void treeDfs(const BPTNode *&st){
         const BPTNode *tmpn = nullptr;
         const T *tmpd = nullptr;
@@ -820,6 +867,15 @@ public:
         }
     }
 
+    bool modifyData(const Key &k , const T &dta){
+        changeToRoot();
+        int ret = -1;
+        if(currentNode->sz == 0) return 0;
+        ret = treeModify(k, dta, currentNode);
+        if(ret ==  INVALID || ret == NOTEXIST) return 0;
+        else return 1;
+    }
+
     T *findU(const Key &k){
         changeToRoot();
         if(currentNode->sz == 0) return nullptr;
@@ -831,6 +887,7 @@ public:
         if(rt.data != -1) trt = readData(rt.data);
         return trt;
     }
+
 
     void dfs(){
         const BPTNode *p = nullptr;
