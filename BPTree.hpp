@@ -5,6 +5,7 @@
 #include <cstring>
 #include <queue>
 #include <assert.h>
+#include "vector.hpp"
 #include "dbException.hpp"
 #define IOB std::ios_base::in | std::ios_base::out | std::ios_base::binary
 #define TIOB std::ios_base::trunc | std::ios_base::in | std::ios_base::out | std::ios_base::binary
@@ -32,6 +33,14 @@ const char DB_SUFFIX[10] = ".ksxdb";
 const char IDX_SUFFIX[10] = ".ksxidx";
 const char IDX_MGR_SUFFIX[10] = ".idxmgr";
 const char DB_MGR_SUFFIX[10] = ".dbmgr";
+
+template<typename A, typename B>
+struct mypair{
+    A first;
+    B second;
+    mypair(A st, B nd):first(st), second(nd){}
+};
+
 
 template<typename Key, typename T, typename Compare>
 class BPTree;
@@ -61,12 +70,6 @@ private:
     struct BPTNode{
         BPTNode() = default;
         BPTNode(const int &ndt):nodeType(ndt){}
-        /*BPTNode(const BPTNode &other){
-            nodeType = other.nodeType;
-            sz = other.sz;
-            for(int i = 0; i < sz; ++i) data[i] = other.data[i];
-        }*/
-
         //DATA
         int nodeType = DELETED;
         OFFSET_TYPE sz = 0;
@@ -90,6 +93,16 @@ private:
             mid = (lo + hi + 1) >> 1;
             if(keyCompare(k, p->data[mid].k) == 1) hi = mid - 1;
             else lo = mid;
+        }
+        return lo;
+    }
+
+    inline OFFSET_TYPE binSearchForRange(const BPTNode *p, const Key &k){
+        OFFSET_TYPE lo = 0, hi = p->sz - 1, mid = 0;
+        while(lo < hi){
+            mid = (lo + hi) >> 1;
+            if(keyCompare(p->data[mid].k, k) == 1) lo = mid + 1;
+            else hi = mid;
         }
         return lo;
     }
@@ -133,8 +146,6 @@ private:
     }
 
     inline bool deleteNode(BPTNode *p, OFFSET_TYPE offset){
-        /*p->nodeType = DELETED;
-        writeNode(p, p->nodeOffset);*/
         QidxMgr.push(offset);
     }
 
@@ -764,6 +775,47 @@ private:
 
    }
 
+   void treeFindRange(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<T> &vec){
+       if(keyCompare(kl, kr) == 0) return;
+       const BPTNode *tmpn = nullptr;
+       T *dtaptr = nullptr;
+       OFFSET_TYPE pos = 0;
+       bool sonflag = 0;
+       if(st->nodeType == LEAF_NODE){
+           pos = binSearchForRange(st, kl);
+           while(1){
+               for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos){
+                   dtaptr = readData(st->data[pos].data);
+                   vec.push_back(*dtaptr);
+                   delete dtaptr;
+                   dtaptr = nullptr;
+               }
+               if(keyCompare(st->data[pos].k, kr) != 0 && st->nextNode != (OFFSET_TYPE)(-1)){
+                   tmpn = readNode(st->nextNode);
+                   delete st;
+                   st = tmpn;
+                   tmpn = nullptr;
+                   pos = 0;
+               }
+               else{
+                  delete st;
+                  st = nullptr;
+                  return;
+               }
+           }
+       }
+       else{
+           pos = binSearch(st, kl);
+           tmpn = readNode(st->data[pos].data);
+           if(tmpn->nodeType == LEAF_NODE) sonflag = 1;
+           treeFindRange(kl, kr, tmpn, vec);
+           if(!sonflag) delete tmpn;
+           tmpn = nullptr;
+           return;
+       }
+   }
+
+   //for debug only
    void treeDfs(const BPTNode *&st){
         const BPTNode *tmpn = nullptr;
         const T *tmpd = nullptr;
@@ -805,6 +857,8 @@ public:
         strcat(dbFileMgr, DB_MGR_SUFFIX);
         importIdxFile(sizeof(T));
     }
+
+    BPTree() = default;
 
     ~BPTree(){
         if(currentNode) delete currentNode;
@@ -888,6 +942,12 @@ public:
         return trt;
     }
 
+
+    void findR(const Key &kl, const Key &kr, sjtu::vector<T> &vec){
+        changeToRoot();
+        const BPTNode *fst = currentNode;
+        treeFindRange(kl, kr, fst, vec);
+    }
 
     void dfs(){
         const BPTNode *p = nullptr;

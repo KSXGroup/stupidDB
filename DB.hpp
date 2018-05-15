@@ -1,13 +1,6 @@
 #ifndef _STUPID_DB_HPP_
 #define _STUPID_DB_HPP_
 #include "BPTree.hpp"
-template<typename A, typename B>
-struct mypair{
-    A first;
-    B second;
-    mypair(A st, B nd):first(st), second(nd){}
-};
-
 template <typename D, typename K>
 class DB{
 private:
@@ -36,6 +29,8 @@ public:
         else return mypair<D*, bool>(1, p);
     }
 
+    void findRange(const K &l, const K &r, sjtu::vetor<D> &vec){
+        tree->findR(l, r, vec);
+    }
 };
-class multiDB{};
 #endif
