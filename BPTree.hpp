@@ -775,21 +775,16 @@ private:
 
    }
 
-   void treeFindRange(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<T> &vec){
+   void treeFindRange(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<Key> &vec){
        if(keyCompare(kl, kr) == 0) return;
        const BPTNode *tmpn = nullptr;
-       T *dtaptr = nullptr;
+       //T *dtaptr = nullptr;
        OFFSET_TYPE pos = 0;
        bool sonflag = 0;
        if(st->nodeType == LEAF_NODE){
            pos = binSearchForRange(st, kl);
            while(1){
-               for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos){
-                   dtaptr = readData(st->data[pos].data);
-                   vec.push_back(*dtaptr);
-                   delete dtaptr;
-                   dtaptr = nullptr;
-               }
+               for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos) vec.push_back(st->data[pos].k);
                if(keyCompare(st->data[pos].k, kr) != 0 && st->nextNode != (OFFSET_TYPE)(-1)){
                    tmpn = readNode(st->nextNode);
                    delete st;
@@ -943,7 +938,7 @@ public:
     }
 
 
-    void findR(const Key &kl, const Key &kr, sjtu::vector<T> &vec){
+    void findR(const Key &kl, const Key &kr, sjtu::vector<Key> &vec){
         changeToRoot();
         const BPTNode *fst = currentNode;
         treeFindRange(kl, kr, fst, vec);

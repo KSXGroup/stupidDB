@@ -1,10 +1,10 @@
 #ifndef _STUPID_DB_HPP_
 #define _STUPID_DB_HPP_
 #include "BPTree.hpp"
-template <typename D, typename K>
+template <typename K, typename D, typename Compare =  std::less<K> >
 class DB{
 private:
-    BPTree<K, D, std::less<K> > *tree = nullptr;
+    BPTree<K, D, Compare> *tree = nullptr;
 public:
     DB(){}
     ~DB(){
@@ -12,24 +12,29 @@ public:
         tree = nullptr;
     }
     void init(const char *fileName){
-        tree = new BPTree<D, K>(fileName);
-        for(int i = 1; i <= 1000; ++i) tree->insertData(i, i);
-        tree->dfs();
+        tree = new BPTree<K, D, Compare>(fileName);
+        //for(int i = 1; i <= 1000; ++i) tree->insertData(i, i);
+        //tree->dfs();
     }
-    void insert(const K &Key, const D &dta){
-        tree->insertData(Key, dta);
+    bool insert(const K &Key, const D &dta){
+        return tree->insertData(Key, dta);
     }
-    void modify(const K &Key, const D &dta){
-        tree->modifyData(Key, dta);
+    bool modify(const K &Key, const D &dta){
+        return tree->modifyData(Key, dta);
     }
+
+    bool erase(const K &Key){
+        return tree->removeData(Key);
+    }
+
     mypair<D*, bool> find(const K &Key){
         D* p = nullptr;
         p = tree->findU(Key);
-        if(!p) return mypair<D*, bool>(0, p);
-        else return mypair<D*, bool>(1, p);
+        if(!p) return mypair<D*, bool>(p, 0);
+        else return mypair<D*, bool>(p, 1);
     }
 
-    void findRange(const K &l, const K &r, sjtu::vetor<D> &vec){
+    void findRange(const K &l, const K &r, sjtu::vector<K> &vec){
         tree->findR(l, r, vec);
     }
 };
