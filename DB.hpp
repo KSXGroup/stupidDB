@@ -37,5 +37,9 @@ public:
     void findRange(const K &l, const K &r, sjtu::vector<K> &vec){
         tree->findR(l, r, vec);
     }
+
+    void findRangeData(const K &l, const K &r, sjtu::vector<D> &vec){
+        tree->findRD(l, r, vec);
+    }
 };
 #endif

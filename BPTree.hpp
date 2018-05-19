@@ -12,7 +12,7 @@
 #define OFFSET_TYPE unsigned long long
 //file io
 const OFFSET_TYPE MAX_FILENAME_LEN = 30;
-const OFFSET_TYPE MAX_BLOCK_SIZE = 4;
+const OFFSET_TYPE MAX_BLOCK_SIZE = 252;
 const OFFSET_TYPE FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof( OFFSET_TYPE );
 const OFFSET_TYPE INVALID_OFFSET = -1;
 //node type
@@ -810,6 +810,48 @@ private:
        }
    }
 
+
+   void treeFindRangeForData(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<T> &vec){
+       if(keyCompare(kl, kr) == 0) return;
+       const BPTNode *tmpn = nullptr;
+       T *dtaptr = nullptr;
+       OFFSET_TYPE pos = 0;
+       bool sonflag = 0;
+       if(st->nodeType == LEAF_NODE){
+           pos = binSearchForRange(st, kl);
+           while(1){
+               for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos){
+                   dtaptr = readData(st->data[pos].data);
+                   vec.push_back(*dtaptr);
+                   delete dtaptr;
+                   dtaptr = nullptr;
+               }
+               if(keyCompare(st->data[pos].k, kr) != 0 && st->nextNode != (OFFSET_TYPE)(-1)){
+                   tmpn = readNode(st->nextNode);
+                   delete st;
+                   st = tmpn;
+                   tmpn = nullptr;
+                   pos = 0;
+               }
+               else{
+                  delete st;
+                  st = nullptr;
+                  return;
+               }
+           }
+       }
+       else{
+           pos = binSearch(st, kl);
+           tmpn = readNode(st->data[pos].data);
+           if(tmpn->nodeType == LEAF_NODE) sonflag = 1;
+           treeFindRangeForData(kl, kr, tmpn, vec);
+           if(!sonflag) delete tmpn;
+           tmpn = nullptr;
+           return;
+       }
+   }
+
+
    //for debug only
    void treeDfs(const BPTNode *&st){
         const BPTNode *tmpn = nullptr;
@@ -942,6 +984,12 @@ public:
         changeToRoot();
         const BPTNode *fst = currentNode;
         treeFindRange(kl, kr, fst, vec);
+    }
+
+    void findRD(const Key &kl, const Key &kr, sjtu::vector<T> &vec){
+        changeToRoot();
+        const BPTNode *fst = currentNode;
+        treeFindRangeForData(kl, kr, fst, vec);
     }
 
     void dfs(){
