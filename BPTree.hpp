@@ -776,7 +776,11 @@ private:
    }
 
    void treeFindRange(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<Key> &vec){
-       if(keyCompare(kl, kr) == 0) return;
+       if(keyCompare(kl, kr) == 0){
+           delete st;
+           st = nullptr;
+           return;
+       }
        const BPTNode *tmpn = nullptr;
        //T *dtaptr = nullptr;
        OFFSET_TYPE pos = 0;
@@ -812,7 +816,11 @@ private:
 
 
    void treeFindRangeForData(const Key &kl, const Key &kr, const BPTNode *st, sjtu::vector<T> &vec){
-       if(keyCompare(kl, kr) == 0) return;
+       if(keyCompare(kl, kr) == 0){
+            delete st;
+            st = nullptr;
+            return;
+       }
        const BPTNode *tmpn = nullptr;
        T *dtaptr = nullptr;
        OFFSET_TYPE pos = 0;
@@ -981,15 +989,19 @@ public:
 
 
     void findR(const Key &kl, const Key &kr, sjtu::vector<Key> &vec){
+        if(dataSize == 0) return;
         changeToRoot();
         const BPTNode *fst = currentNode;
         treeFindRange(kl, kr, fst, vec);
+        currentNode = nullptr;
     }
 
     void findRD(const Key &kl, const Key &kr, sjtu::vector<T> &vec){
+        if(dataSize == 0) return;
         changeToRoot();
         const BPTNode *fst = currentNode;
         treeFindRangeForData(kl, kr, fst, vec);
+        currentNode = nullptr;
     }
 
     void dfs(){
@@ -998,6 +1010,10 @@ public:
         p = currentNode;
         treeDfs(p);
         currentNode = nullptr;
+    }
+
+    OFFSET_TYPE size() const{
+        return dataSize;
     }
 
 };
