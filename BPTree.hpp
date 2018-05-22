@@ -98,13 +98,16 @@ private:
     }
 
     inline OFFSET_TYPE binSearchForRange(const BPTNode *p, const Key &k){
-        OFFSET_TYPE lo = 0, hi = p->sz - 1, mid = 0;
-        while(lo < hi){
+        OFFSET_TYPE lo = 0, hi = p->sz - 1, mid = 0, ans = -1;
+        while(lo <= hi){
             mid = (lo + hi) >> 1;
             if(keyCompare(p->data[mid].k, k) == 1) lo = mid + 1;
-            else hi = mid;
+            else{
+               ans = mid;
+               mid = hi - 1;
+            }
         }
-        return lo;
+        return ans;
     }
 
 private:
@@ -827,6 +830,11 @@ private:
        bool sonflag = 0;
        if(st->nodeType == LEAF_NODE){
            pos = binSearchForRange(st, kl);
+           if(pos == -1){
+               delete st;
+               st = nullptr;
+               return;
+           }
            while(1){
                for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos){
                    dtaptr = readData(st->data[pos].data);
