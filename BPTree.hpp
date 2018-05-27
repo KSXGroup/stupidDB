@@ -104,7 +104,8 @@ private:
             if(keyCompare(p->data[mid].k, k) == 1) lo = mid + 1;
             else{
                ans = mid;
-               mid = hi - 1;
+               hi = mid - 1;
+               if (hi == -1) return ans;
             }
         }
         return ans;
