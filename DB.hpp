@@ -45,5 +45,10 @@ public:
     size_t size() const{
         return tree->size();
     }
+
+    //warning!
+    void trunc(){
+        tree->trunc();
+    }
 };
 #endif

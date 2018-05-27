@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstring>
-#include <queue>
+#include "queue.h"
 #include <assert.h>
 #include "vector.hpp"
 #include "dbException.hpp"
@@ -120,8 +120,8 @@ private:
     std::fstream fidx;
     std::fstream fdb;
     std::fstream fmgr;
-    std::queue< OFFSET_TYPE > QidxMgr;
-    std::queue< OFFSET_TYPE > QdbMgr;
+    stl::queue< OFFSET_TYPE > QidxMgr;
+    stl::queue< OFFSET_TYPE > QdbMgr;
     BPTNode* currentNode = nullptr;
 
 //*******************file IO****************************//
@@ -150,6 +150,7 @@ private:
 
     inline bool deleteNode(BPTNode *p, OFFSET_TYPE offset){
         QidxMgr.push(offset);
+        return 1;
     }
 
     bool writeIdx(){
@@ -291,7 +292,7 @@ private:
        return offset;
    }
 
-   OFFSET_TYPE deleteData(OFFSET_TYPE offset){
+   bool deleteData(OFFSET_TYPE offset){
        //DBG
        /*OFFSET_TYPE p = -1;
        fdb.close();
@@ -300,6 +301,7 @@ private:
        fdb.write((char*)&p, sizeof( OFFSET_TYPE ));
        fdb.close();*/
        QdbMgr.push(offset);
+       return 1;
    }
 
     bool importIdxFile(const OFFSET_TYPE dl){
@@ -867,6 +869,26 @@ private:
        }
    }
 
+   void treeClear(){
+       QidxMgr.clear();
+       QdbMgr.clear();
+       fidx.close();
+       fdb.close();
+       fmgr.close();
+       fmgr.open(idxFileMgr, TIOB);
+       fmgr.close();
+       fmgr.open(dbFileMgr, TIOB);
+       fmgr.close();
+       fmgr.open(idxFileName, TIOB);
+       fmgr.close();
+       fmgr.open(dbFileName , TIOB);
+       fmgr.close();
+       dataSize = 0;
+       writeIdx();
+       currentNode = allocNode(LEAF_NODE);
+       rootOffset = currentNode->nodeOffset;
+       writeIdx();
+   }
 
    //for debug only
    void treeDfs(const BPTNode *&st){
@@ -893,6 +915,7 @@ private:
            return;
        }
    }
+
 
 public:
     BPTree(const char* s){
@@ -1022,6 +1045,10 @@ public:
 
     OFFSET_TYPE size() const{
         return dataSize;
+    }
+
+    void trunc(){
+        treeClear();
     }
 
 };
