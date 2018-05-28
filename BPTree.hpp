@@ -12,7 +12,7 @@
 #define OFFSET_TYPE unsigned long long
 //file io
 const OFFSET_TYPE MAX_FILENAME_LEN = 30;
-const OFFSET_TYPE MAX_BLOCK_SIZE = 252;
+const OFFSET_TYPE MAX_BLOCK_SIZE = 8;
 const OFFSET_TYPE FIRST_NODE_OFFSET = MAX_FILENAME_LEN * sizeof(char) * 2 + 2 * sizeof( OFFSET_TYPE );
 const OFFSET_TYPE INVALID_OFFSET = -1;
 //node type
@@ -399,7 +399,7 @@ private:
         ntmp->nextNode = p->nextNode;
         ntmp->prevNode = p->nodeOffset;
         p->nextNode = ntmp->nodeOffset;
-        if(tmpNext){
+        if(tmpNext != -1){
             tmpNext->prevNode = ntmp->nodeOffset;
             writeNode(tmpNext, tmpNext->nodeOffset);
             delete tmpNext;
@@ -795,7 +795,7 @@ private:
            pos = binSearchForRange(st, kl);
            while(1){
                for(;pos < st->sz && keyCompare(st->data[pos].k, kr) != 0;++pos) vec.push_back(st->data[pos].k);
-               if(keyCompare(st->data[pos].k, kr) != 0 && st->nextNode != (OFFSET_TYPE)(-1)){
+               if((keyCompare(st->data[pos].k, kr) != 0 || pos == st->sz) && st->nextNode != (OFFSET_TYPE)(-1)){
                    tmpn = readNode(st->nextNode);
                    delete st;
                    st = tmpn;
@@ -845,7 +845,7 @@ private:
                    delete dtaptr;
                    dtaptr = nullptr;
                }
-               if(keyCompare(st->data[pos].k, kr) != 0 && st->nextNode != (OFFSET_TYPE)(-1)){
+               if((keyCompare(st->data[pos].k, kr) != 0 || pos == st->sz) && st->nextNode != (OFFSET_TYPE)(-1)){
                    tmpn = readNode(st->nextNode);
                    delete st;
                    st = tmpn;
